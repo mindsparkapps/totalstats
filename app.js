@@ -102,6 +102,10 @@ function ratingColor(v) {
 const ratingBadge = v => `<span class="rating" style="background:${ratingColor(v)}">${v == null ? '–' : v.toFixed(1)}</span>`;
 const deltaChip = d => Math.abs(d) < 0.05 ? `<span class="chip">= 0.0</span>` : `<span class="chip ${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}</span>`;
 const playerById = id => S.jugadores.find(j => j.id === id);
+// Foto del jugador con el dorsal encima; sin foto, el círculo con el dorsal de siempre
+const avatar = (j, cls = '') => j.foto
+  ? `<span class="dorsal av ${cls}"><img src="${esc(j.foto)}" alt="">${j.dorsal ? `<i>${esc(j.dorsal)}</i>` : ''}</span>`
+  : `<span class="dorsal ${cls}">${esc(j.dorsal || '–')}</span>`;
 const sortedPlayers = () => [...S.jugadores].sort((a, b) => (+a.dorsal || 99) - (+b.dorsal || 99) || a.nombre.localeCompare(b.nombre));
 
 /* ---------- Charts ---------- */
@@ -173,11 +177,11 @@ function renderPanel() {
     <div class="card c5"><h3 style="margin-bottom:6px">Mejor valorados</h3><div class="list">${best.map(x => rowPlayer(x.j, ratingBadge(x.st.media))).join('') || '<p class="hint">Sin evaluaciones todavía.</p>'}</div></div>
     <div class="card c7"><h3 style="margin-bottom:6px">Actividad reciente</h3><div class="list">${last.map(s => {
       const j = playerById(s.jugadorId); if (!j) return '';
-      return `<div class="li"><span class="dorsal">${esc(j.dorsal || '–')}</span><div class="grow"><div class="name">${esc(j.nombre)}</div><div class="meta">${esc(s.tipo)} · ${fdate(s.fecha)}${+s.goles ? ` · ${s.goles} gol${+s.goles > 1 ? 'es' : ''}` : ''}${+s.asistencias ? ` · ${s.asistencias} asist.` : ''}</div></div>${ratingBadge(media(s))}</div>`;
+      return `<div class="li">${avatar(j)}<div class="grow"><div class="name">${esc(j.nombre)}</div><div class="meta">${esc(s.tipo)} · ${fdate(s.fecha)}${+s.goles ? ` · ${s.goles} gol${+s.goles > 1 ? 'es' : ''}` : ''}${+s.asistencias ? ` · ${s.asistencias} asist.` : ''}</div></div>${ratingBadge(media(s))}</div>`;
     }).join('') || '<p class="hint">Registra la primera sesión desde la pestaña Sesiones.</p>'}</div></div>
   </div>`;
 }
-const rowPlayer = (j, right) => `<button class="li" data-open="${esc(j.id)}" style="background:none;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;width:100%"><span class="dorsal">${esc(j.dorsal || '–')}</span><div class="grow"><div class="name">${esc(j.nombre)}</div><div class="meta">${esc(j.posicion || '')}</div></div>${right}</button>`;
+const rowPlayer = (j, right) => `<button class="li" data-open="${esc(j.id)}" style="background:none;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;width:100%">${avatar(j)}<div class="grow"><div class="name">${esc(j.nombre)}</div><div class="meta">${esc(j.posicion || '')}</div></div>${right}</button>`;
 
 /* ---------- Jugadores ---------- */
 function sparkline(ev) {
@@ -196,7 +200,7 @@ function renderJugadores() {
   list.sort(cmp);
   el.innerHTML = list.length ? `<div class="players">${list.map(({ j, st }) => `
     <button class="pcard" data-open="${esc(j.id)}">
-      <div class="ph"><span class="dorsal">${esc(j.dorsal || '–')}</span><div style="min-width:0;flex:1"><div class="pn">${esc(j.nombre)}</div><div class="pp">${esc(j.posicion || 'Sin posición')}${j.ejemplo ? ' · <span class="chip ex">Ejemplo</span>' : ''}</div></div>${ratingBadge(st.media)}</div>
+      <div class="ph">${avatar(j)}<div style="min-width:0;flex:1"><div class="pn">${esc(j.nombre)}</div><div class="pp">${esc(j.posicion || 'Sin posición')}${j.ejemplo ? ' · <span class="chip ex">Ejemplo</span>' : ''}</div></div>${ratingBadge(st.media)}</div>
       <div class="pf"><div class="stats"><span><b>${st.ss.length}</b> ses.</span><span><b>${st.goles}</b> goles</span><span><b>${st.asist}</b> asist.</span></div>${sparkline(st.ev)}</div>
       <div class="pf"><span class="hint">${st.ev.length > 1 ? 'Progreso desde el inicio' : st.ev.length ? '1 evaluación' : 'Sin evaluar'}</span>${st.ev.length > 1 ? deltaChip(st.delta) : ''}</div>
     </button>`).join('')}</div>` : `<p class="hint">Ningún jugador coincide con la búsqueda.</p>`;
@@ -213,7 +217,7 @@ function renderDetail() {
   const pts = st.ev.map(s => ({ label: fdate(s.fecha).slice(0, 5), value: detailAttr === 'media' ? media(s) : +s.val[detailAttr] }));
   const age = j.anio ? new Date().getFullYear() - +j.anio : null;
   $('#detail').innerHTML = `
-  <div class="dlg-h"><span class="dorsal" style="width:46px;height:46px;font-size:1.4rem">${esc(j.dorsal || '–')}</span>
+  <div class="dlg-h">${avatar(j, 'lg')}
     <div class="grow"><h3 style="font-size:1.5rem">${esc(j.nombre)}</h3><div class="hint">${esc(j.posicion || '')}${age ? ` · ${age} años` : ''}${j.pie ? ` · ${esc(j.pie)}` : ''}</div></div>
     <button class="btn ghost sm" data-close-detail>Cerrar</button></div>
   <div class="dlg-b">
@@ -298,16 +302,80 @@ function openPlayerForm(id) {
   $('#pf-title').textContent = id ? 'Editar jugador' : 'Nuevo jugador';
   $('#p-nombre').value = j.nombre || ''; $('#p-dorsal').value = j.dorsal || ''; $('#p-pos').value = j.posicion || POS[3];
   $('#p-anio').value = j.anio || ''; $('#p-pie').value = j.pie || 'Diestro'; $('#p-obj').value = j.objetivo || '';
+  setFormPhoto(j.foto || null);
   $('#dlg-player').showModal(); $('#p-nombre').focus();
 }
+
+/* ---------- Foto del jugador: cámara (PC y celular) o imagen de la galería ---------- */
+let formPhoto = null;
+function setFormPhoto(src) {
+  formPhoto = src;
+  const prev = $('#p-photo-prev');
+  prev.innerHTML = src ? `<img src="${esc(src)}" alt="">` : '<svg width="34" height="34" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="currentColor"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" fill="currentColor"/></svg>';
+  $('#p-photo-del').hidden = !src;
+}
+// Recorte cuadrado centrado y reducido a 320 px en JPEG: unos 20-30 KB, ligero para Drive
+function squarePhoto(source, sw, sh, mirror = false) {
+  const side = Math.min(sw, sh), size = Math.min(320, side);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d');
+  if (mirror) { g.translate(size, 0); g.scale(-1, 1); }
+  g.drawImage(source, (sw - side) / 2, (sh - side) / 2, side, side, 0, 0, size, size);
+  return c.toDataURL('image/jpeg', 0.82);
+}
+async function photoFromFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  try {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise((ok, ko) => { img.onload = ok; img.onerror = ko; img.src = url; });
+    setFormPhoto(squarePhoto(img, img.naturalWidth, img.naturalHeight));
+    URL.revokeObjectURL(url);
+  } catch { toast('No se pudo leer esa imagen.'); }
+}
+['#p-photo-input', '#p-photo-capture'].forEach(s => $(s).addEventListener('change', e => { photoFromFile(e.target.files[0]); e.target.value = ''; }));
+$('#p-photo-file').addEventListener('click', () => $('#p-photo-input').click());
+$('#p-photo-del').addEventListener('click', () => setFormPhoto(null));
+
+let camStream = null, camFacing = 'user', camDevices = 0;
+function stopCam() { if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+async function startCam() {
+  stopCam();
+  const v = $('#cam-video'), msg = $('#cam-msg');
+  msg.hidden = true; $('#cam-shot').disabled = true;
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false });
+    v.srcObject = camStream; v.classList.toggle('mirror', camFacing === 'user');
+    await v.play().catch(() => {});
+    $('#cam-shot').disabled = false;
+    if (!camDevices) camDevices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput').length;
+    $('#cam-switch').hidden = camDevices < 2;
+  } catch (e) {
+    msg.hidden = false;
+    msg.textContent = e && e.name === 'NotAllowedError' ? 'No hay permiso para usar la cámara. Actívalo en la configuración del navegador o usa «Elegir imagen».' : 'No se encontró ninguna cámara en este dispositivo. Usa «Elegir imagen».';
+  }
+}
+$('#p-photo-cam').addEventListener('click', () => {
+  // Sin acceso directo a la cámara (navegadores antiguos): se usa la cámara del sistema
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('#p-photo-capture').click(); return; }
+  $('#dlg-camera').showModal(); startCam();
+});
+$('#cam-switch').addEventListener('click', () => { camFacing = camFacing === 'user' ? 'environment' : 'user'; startCam(); });
+$('#cam-shot').addEventListener('click', () => {
+  const v = $('#cam-video'); if (!v.videoWidth) return;
+  setFormPhoto(squarePhoto(v, v.videoWidth, v.videoHeight, camFacing === 'user'));
+  $('#dlg-camera').close();
+});
+$('[data-cam-close]').addEventListener('click', () => $('#dlg-camera').close());
+$('#dlg-camera').addEventListener('close', stopCam);
 $('#p-pos').innerHTML = POS.map(p => `<option>${p}</option>`).join('');
 $('#fpos').innerHTML += POS.map(p => `<option>${p}</option>`).join('');
 $('#pform').addEventListener('submit', async e => {
   e.preventDefault();
   const nombre = $('#p-nombre').value.trim(); if (!nombre) return;
   const id = editingPlayer || uid(); const prev = editingPlayer ? playerById(editingPlayer) : {};
-  const data = { ...prev, nombre, dorsal: $('#p-dorsal').value ? +$('#p-dorsal').value : null, posicion: $('#p-pos').value, anio: $('#p-anio').value ? +$('#p-anio').value : null, pie: $('#p-pie').value, objetivo: $('#p-obj').value.trim(), creado: prev.creado || Date.now() };
-  delete data.id;
+  const data = { ...prev, nombre, dorsal: $('#p-dorsal').value ? +$('#p-dorsal').value : null, posicion: $('#p-pos').value, anio: $('#p-anio').value ? +$('#p-anio').value : null, pie: $('#p-pie').value, objetivo: $('#p-obj').value.trim(), foto: formPhoto, creado: prev.creado || Date.now() };
+  delete data.id; if (!data.foto) delete data.foto;
   if (await write(() => store.put('jugadores', id, data), editingPlayer ? 'Jugador actualizado' : 'Jugador añadido')) $('#dlg-player').close();
 });
 
@@ -617,6 +685,29 @@ $('#t-share').addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW', err)); });
 }
+
+/* ---------- Botón Instalar (PC y celular) ---------- */
+// Chrome/Edge/Android dan el aviso nativo; iPhone/iPad no, así que ahí se muestran los pasos.
+let installEvt = null;
+const installBtn = $('#installBtn');
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (!isStandalone() && isIOS) installBtn.hidden = false;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!isStandalone()) installBtn.hidden = false; });
+window.addEventListener('appinstalled', () => { installEvt = null; installBtn.hidden = true; toast('TotalStats instalada'); });
+installBtn.addEventListener('click', async () => {
+  if (installEvt) {
+    installEvt.prompt();
+    const { outcome } = await installEvt.userChoice;
+    installEvt = null;
+    if (outcome === 'accepted') installBtn.hidden = true;
+    return;
+  }
+  $('#install-help').innerHTML = isIOS
+    ? '<ol class="steps"><li>Abre esta página en <b>Safari</b>.</li><li>Toca el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).</li><li>Elige <b>Agregar a pantalla de inicio</b> y luego <b>Agregar</b>.</li></ol>'
+    : '<ol class="steps"><li><b>Celular Android:</b> abre el menú <b>⋮</b> de Chrome y elige <b>Instalar app</b> o <b>Agregar a pantalla de inicio</b>.</li><li><b>Computador:</b> en Chrome o Edge, pulsa el ícono de instalar en la barra de direcciones, o el menú <b>⋮</b> → <b>Instalar TotalStats</b>.</li></ol>';
+  $('#dlg-install').showModal();
+});
 buildSliders(); updAvg(); $('#s-date').value = today();
 drawPitch(); newBoard(); renderBoard(); renderAll();
 const hashTab = location.hash.slice(1);
