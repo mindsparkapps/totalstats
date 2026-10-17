@@ -1,0 +1,21 @@
+{
+  "id": "/libreta-del-mister",
+  "name": "Libreta del Míster",
+  "short_name": "Míster",
+  "description": "Seguimiento del progreso futbolístico de un grupo y pizarra táctica con fichas y jugadas animadas.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1512",
+  "theme_color": "#2c7a48",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": ["sports", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
