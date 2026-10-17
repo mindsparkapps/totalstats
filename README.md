@@ -1,4 +1,4 @@
-# Libreta del Míster
+# TotalStats
 
 Seguimiento del progreso futbolístico de un grupo de jugadores, con una pizarra táctica para mostrar posiciones y jugadas.
 App web instalable (PC y celular). Inicia sesión con Google para sincronizar tus datos entre dispositivos a través de tu Google Drive.

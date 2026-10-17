@@ -1,7 +1,7 @@
 {
   "id": "/libreta-del-mister",
-  "name": "Libreta del Míster",
-  "short_name": "Míster",
+  "name": "TotalStats",
+  "short_name": "TotalStats",
   "description": "Seguimiento del progreso futbolístico de un grupo y pizarra táctica con fichas y jugadas animadas.",
   "start_url": "./",
   "scope": "./",

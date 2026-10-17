@@ -1,4 +1,4 @@
-// ===== Libreta del Míster - lógica de la app =====
+// ===== TotalStats - lógica de la app =====
 // Primero local (IndexedDB), luego nube: sync.js sube y baja los cambios a Google Drive.
 
 // ----- IndexedDB (lo usa también sync.js) -----

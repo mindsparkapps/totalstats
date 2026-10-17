@@ -1,4 +1,4 @@
-// Configuración de Libreta del Míster
+// Configuración de TotalStats
 // googleClientId: cliente OAuth compartido "MindSpark" (tipo "Aplicación web"). Es público y seguro de publicar.
 // Se usa para iniciar sesión con Google y sincronizar los datos en tu Google Drive.
 window.LIBRETA_CONFIG = {

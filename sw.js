@@ -1,4 +1,4 @@
-const CACHE_NAME = 'libreta-v1';
+const CACHE_NAME = 'libreta-v2';
 const ASSETS = [
   './',
   './index.html',

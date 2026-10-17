@@ -1,4 +1,4 @@
-// ===== Libreta del Míster - Cuenta de Google + sincronización con Google Drive =====
+// ===== TotalStats - Cuenta de Google + sincronización con Google Drive =====
 // Mismo patrón que ApiTrack y ZenBan. Los datos se guardan en la carpeta oculta de la app
 // en tu Drive (appDataFolder): libreta-data.json -> jugadores, sesiones y jugadas.
 
@@ -338,7 +338,7 @@ async function syncNow() {
     if (remote) {
       if (lastSyncedAt() === 0 && countRecords(local) > 0 && countRecords(remote) > 0) {
         // Primera vez en este dispositivo y ya hay datos en Drive: nunca se pisa nada sin preguntar
-        const useDrive = confirm('Ya hay datos de Libreta del Míster en tu Google Drive.\n\nAceptar: usar esos datos en este dispositivo (lo que hay aquí se reemplaza).\nCancelar: combinar esos datos con lo que hay en este dispositivo (no se pierde nada).');
+        const useDrive = confirm('Ya hay datos de TotalStats en tu Google Drive.\n\nAceptar: usar esos datos en este dispositivo (lo que hay aquí se reemplaza).\nCancelar: combinar esos datos con lo que hay en este dispositivo (no se pierde nada).');
         result = useDrive ? remote : mergePayloads(local, remote);
       } else {
         result = mergePayloads(local, remote);
