@@ -463,7 +463,9 @@ const FORM = {
   '4-2-3-1': [[50,340],[200,110],[185,260],[185,420],[200,570],[290,260],[290,420],[395,120],[395,340],[395,560],[475,340]],
   '3-5-2':   [[50,340],[190,190],[180,340],[190,490],[330,80],[300,230],[285,340],[300,450],[330,600],[460,270],[460,410]],
   '5-3-2':   [[50,340],[220,80],[180,200],[170,340],[180,480],[220,600],[320,200],[300,340],[320,480],[460,270],[460,410]],
-  '3-4-3':   [[50,340],[190,190],[180,340],[190,490],[320,120],[300,270],[300,410],[320,560],[450,130],[475,340],[450,550]]
+  '3-4-3':   [[50,340],[190,190],[180,340],[190,490],[320,120],[300,270],[300,410],[320,560],[450,130],[475,340],[450,550]],
+  '4-1-4-1': [[50,340],[200,110],[185,260],[185,420],[200,570],[270,340],[370,110],[360,260],[360,420],[370,570],[470,340]],
+  '4-5-1':   [[50,340],[200,110],[185,260],[185,420],[200,570],[340,90],[320,215],[300,340],[320,465],[340,590],[470,340]]
 };
 const T = { meta: [], frames: [], cur: 0, tool: 'mover', sel: null, showB: true, playing: false, formA: '4-3-3', formB: '4-4-2', loadedId: null };
 const svg = $('#pitch'), NS = 'http://www.w3.org/2000/svg';
@@ -479,7 +481,7 @@ function newBoard() {
 }
 function drawPitch() {
   const L = 'fill="none" stroke="var(--chalk)" stroke-width="3" stroke-opacity=".9"';
-  let g = `<rect x="-30" y="-30" width="1110" height="740" fill="var(--pitch)"/>`;
+  let g = `<rect x="-50" y="-50" width="1150" height="780" fill="var(--pitch)"/>`;
   for (let i = 0; i < 10; i++) if (i % 2) g += `<rect x="${i * 105}" y="0" width="105" height="680" fill="var(--pitch-stripe)"/>`;
   g += `<rect x="0" y="0" width="1050" height="680" ${L}/><line x1="525" y1="0" x2="525" y2="680" ${L}/><circle cx="525" cy="340" r="91.5" ${L}/><circle cx="525" cy="340" r="4" fill="var(--chalk)"/>`;
   [[0, 1], [1050, -1]].forEach(([x0, s]) => {
@@ -494,9 +496,12 @@ function drawPitch() {
 }
 // En pantallas angostas las fichas se agrandan para poder arrastrarlas con el dedo
 let TK = 1;
-function updateTokenScale() { const w = svg.clientWidth || 800; const k = Math.min(1.8, Math.max(1, 640 / w)); if (Math.abs(k - TK) > 0.05) { TK = k; drawTokens(); } }
-const tf = (x, y) => `translate(${x} ${y}) scale(${TK})`;
+function updateTokenScale() { const w = Math.min(svg.clientWidth, svg.clientHeight * 1150 / 780) || svg.clientWidth || 800; const k = Math.min(1.8, Math.max(1, 640 / w)); if (Math.abs(k - TK) > 0.05) { TK = k; drawTokens(); } }
+// la ficha seleccionada se ve más grande
+const SELK = 1.4;
+const tf = (x, y, sel) => `translate(${x} ${y}) scale(${sel ? TK * SELK : TK})`;
 window.addEventListener('resize', updateTokenScale);
+window.addEventListener('orientationchange', () => setTimeout(updateTokenScale, 300));
 function shortName(pid) { const j = pid && playerById(pid); return j ? j.nombre.split(' ')[0] : ''; }
 function drawTokens(posOverride, arrowsOverride, arrowOpacity = 1) {
   const fr = T.frames[T.cur]; if (!fr) return;
@@ -506,10 +511,10 @@ function drawTokens(posOverride, arrowsOverride, arrowOpacity = 1) {
   $('#g-tokens').innerHTML = T.meta.filter(m => m.team !== 'b' || T.showB).map(m => {
     const p = pos[m.id]; if (!p) return '';
     const sel = T.sel === m.id;
-    if (m.team === 'ball') return `<g class="tok" data-tok="ball" tabindex="0" role="button" aria-label="Balón" transform="${tf(p.x, p.y)}"><circle class="ring" r="20" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="5 4" opacity="${sel ? 1 : 0}"/><circle r="11" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/><path d="M0 -5 L4.8 -1.5 L3 4 L-3 4 L-4.8 -1.5Z" fill="#1a1a1a"/></g>`;
+    if (m.team === 'ball') return `<g class="tok" data-tok="ball" tabindex="0" role="button" aria-label="Balón" transform="${tf(p.x, p.y, sel)}"><circle class="ring" r="20" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="5 4" opacity="${sel ? 1 : 0}"/><circle r="11" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/><path d="M0 -5 L4.8 -1.5 L3 4 L-3 4 L-4.8 -1.5Z" fill="#1a1a1a"/></g>`;
     const fill = m.team === 'a' ? 'var(--team-a)' : 'var(--team-b)';
     const nm = m.team === 'a' ? shortName(m.playerId) : '';
-    return `<g class="tok" data-tok="${m.id}" tabindex="0" role="button" aria-label="${m.team === 'a' ? 'Mi equipo' : 'Rival'} ${esc(m.label)} ${esc(nm)}" transform="${tf(p.x, p.y)}">
+    return `<g class="tok" data-tok="${m.id}" tabindex="0" role="button" aria-label="${m.team === 'a' ? 'Mi equipo' : 'Rival'} ${esc(m.label)} ${esc(nm)}" transform="${tf(p.x, p.y, sel)}">
       <circle class="ring" r="29" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="6 5" opacity="${sel ? 1 : 0}"/>
       <circle r="21" fill="${fill}" stroke="var(--chalk)" stroke-width="3"/>
       <text text-anchor="middle" y="7.5" fill="#fff" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="22" style="pointer-events:none">${esc(m.label)}</text>
@@ -519,12 +524,13 @@ function drawTokens(posOverride, arrowsOverride, arrowOpacity = 1) {
 }
 function drawFrames() {
   $('#frames').innerHTML = `<span class="eyebrow" style="margin-right:4px">Pasos</span>` + T.frames.map((_, i) => `<button class="fr" type="button" data-frame="${i}" aria-current="${i === T.cur}" aria-label="Paso ${i + 1}">${i + 1}</button>`).join('');
+  $('#rail-frames').innerHTML = $('#frames').innerHTML;
   $('#f-del').disabled = T.frames.length < 2;
 }
 function renderBoard() { drawTokens(); drawFrames(); renderSel(); }
 
 function svgPt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
-const clampX = v => Math.max(-15, Math.min(1065, v)), clampY = v => Math.max(-15, Math.min(695, v));
+const clampX = v => Math.max(-30, Math.min(1080, v)), clampY = v => Math.max(-30, Math.min(710, v));
 let drag = null, draft = null;
 svg.addEventListener('pointerdown', e => {
   if (T.playing) return;
@@ -553,7 +559,7 @@ svg.addEventListener('pointermove', e => {
   if (drag) {
     const p = svgPt(e), q = T.frames[T.cur].pos[drag.id];
     q.x = Math.round(clampX(p.x + drag.dx)); q.y = Math.round(clampY(p.y + drag.dy)); drag.moved = true;
-    drag.el.setAttribute('transform', tf(q.x, q.y));
+    drag.el.setAttribute('transform', tf(q.x, q.y, T.sel === drag.id));
   } else if (draft) {
     const p = svgPt(e); draft.x2 = clampX(p.x); draft.y2 = clampY(p.y);
     const d = $('#draft'); ['x1', 'y1', 'x2', 'y2'].forEach(k => d.setAttribute(k, draft[k])); d.setAttribute('visibility', 'visible');
@@ -574,11 +580,17 @@ svg.addEventListener('keydown', e => {
   const d = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key]; if (!d) return;
   e.preventDefault(); const q = T.frames[T.cur].pos[T.sel]; const m = e.shiftKey ? 4 : 1;
   q.x = clampX(q.x + d[0] * m); q.y = clampY(q.y + d[1] * m);
-  const el = svg.querySelector(`[data-tok="${T.sel}"]`); if (el) el.setAttribute('transform', tf(q.x, q.y));
+  const el = svg.querySelector(`[data-tok="${T.sel}"]`); if (el) el.setAttribute('transform', tf(q.x, q.y, true));
 });
 function select(id, redraw = true) {
   T.sel = id;
-  svg.querySelectorAll('[data-tok] .ring').forEach(r => r.setAttribute('opacity', r.parentNode.dataset.tok === id ? 1 : 0));
+  const fr = T.frames[T.cur];
+  svg.querySelectorAll('[data-tok]').forEach(el => {
+    const on = el.dataset.tok === id, p = fr && fr.pos[el.dataset.tok];
+    el.classList.toggle('sel', on);
+    el.querySelector('.ring').setAttribute('opacity', on ? 1 : 0);
+    if (p && !T.playing) el.setAttribute('transform', tf(p.x, p.y, on));
+  });
   renderSel();
 }
 function renderSel() {
@@ -598,8 +610,8 @@ function renderSel() {
 }
 
 /* tools */
-$$('#tools button').forEach(b => b.addEventListener('click', () => {
-  T.tool = b.dataset.tool; $$('#tools button').forEach(x => x.setAttribute('aria-pressed', x === b));
+$$('[data-tool]').forEach(b => b.addEventListener('click', () => {
+  T.tool = b.dataset.tool; $$('[data-tool]').forEach(x => x.setAttribute('aria-pressed', x.dataset.tool === T.tool));
   svg.setAttribute('class', 'mode-' + T.tool);
 }));
 $('#t-clear').addEventListener('click', () => { T.frames[T.cur].arrows = []; drawTokens(); });
@@ -614,8 +626,69 @@ $('#t-fa').addEventListener('change', e => { T.formA = e.target.value; applyForm
 $('#t-fb').addEventListener('change', e => { T.formB = e.target.value; applyForm('b'); });
 $('#t-reset').addEventListener('click', () => { applyForm('a'); applyForm('b'); T.frames[T.cur].pos.ball = { x: 525, y: 340 }; drawTokens(); });
 
+/* todos los jugadores a la orilla: mi equipo en la banda de arriba y el rival en la de abajo, para ir distribuyéndolos */
+function toEdge() {
+  if (T.playing) return;
+  const pos = T.frames[T.cur].pos;
+  ['a', 'b'].forEach(team => {
+    const list = T.meta.filter(m => m.team === team);
+    list.forEach((m, i) => { pos[m.id] = { x: Math.round(75 + i * (900 / Math.max(1, list.length - 1))), y: team === 'a' ? -10 : 690 }; });
+  });
+  select(null); drawTokens(); toast('Jugadores en la orilla: arrástralos a su sitio.');
+}
+$('#t-orilla').addEventListener('click', toEdge);
+
+/* barra de herramientas de la derecha (pantalla completa): submenú de formaciones clásicas */
+let rfTeam = 'a';
+$('#rf-list').innerHTML = Object.keys(FORM).map(f => `<button type="button" data-rf="${f}">${f}</button>`).join('');
+$('#rb-tactica').addEventListener('click', e => { const sub = $('#rail-forms'); sub.hidden = !sub.hidden; e.currentTarget.setAttribute('aria-expanded', !sub.hidden); });
+$('#rf-team').addEventListener('click', e => { const b = e.target.closest('[data-rf-team]'); if (!b) return; rfTeam = b.dataset.rfTeam; $$('#rf-team button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+$('#rf-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-rf]'); if (!b || T.playing) return;
+  ['a', 'b'].forEach(team => { if (rfTeam.includes(team)) { if (team === 'a') { T.formA = b.dataset.rf; $('#t-fa').value = T.formA; } else { T.formB = b.dataset.rf; $('#t-fb').value = T.formB; } applyForm(team); } });
+  toast(`Formación ${b.dataset.rf} · ${rfTeam === 'a' ? 'mi equipo' : rfTeam === 'b' ? 'rival' : 'ambos equipos'}`);
+});
+// los botones de la barra repiten los de la pizarra y se mantienen sincronizados con ellos
+$('#rail').addEventListener('click', e => { const b = e.target.closest('[data-rp]'); if (b) $('#' + b.dataset.rp).click(); });
+function syncRail() {
+  const r = $('#t-rival'), rb = $('#rb-rival'); rb.textContent = r.textContent; rb.setAttribute('aria-pressed', r.getAttribute('aria-pressed'));
+  $('#rb-play').textContent = $('#f-play').textContent; $('#rb-del').disabled = $('#f-del').disabled;
+}
+[['#t-rival', { attributes: true, childList: true }], ['#f-play', { childList: true }], ['#f-del', { attributes: true }]].forEach(([s, o]) => new MutationObserver(syncRail).observe($(s), o));
+
+/* pantalla completa: solo se sale manteniendo pulsado 2 s el botón de la esquina (con un anillo de progreso en el centro) */
+const card = $('.board-card'), HOLD_MS = 2000; let holdRaf = 0;
+function enterFull() {
+  card.classList.add('tb-full'); document.body.classList.add('tb-lock'); syncRail();
+  try { const p = card.requestFullscreen && card.requestFullscreen({ navigationUI: 'hide' }); if (p && p.catch) p.catch(() => {}); } catch {}
+  try { const o = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (o && o.catch) o.catch(() => {}); } catch {}
+  setTimeout(updateTokenScale, 150); setTimeout(updateTokenScale, 600);
+}
+function leaveFull() {
+  card.classList.remove('tb-full'); document.body.classList.remove('tb-lock'); $('#fs-ring').hidden = true;
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
+  try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {}
+  setTimeout(updateTokenScale, 150);
+}
+$('#t-full').addEventListener('click', enterFull);
+const exitBtn = $('#fs-exit');
+function holdStop() { cancelAnimationFrame(holdRaf); holdRaf = 0; $('#fs-ring').hidden = true; }
+exitBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); try { exitBtn.setPointerCapture(e.pointerId); } catch {}
+  const t0 = performance.now(), ring = $('#fs-ring'); ring.hidden = false;
+  (function tick() {
+    const k = Math.min(1, (performance.now() - t0) / HOLD_MS);
+    $('#fs-arc').setAttribute('stroke-dashoffset', (314.16 * (1 - k)).toFixed(1)); $('#fs-pct').textContent = Math.round((1 - k) * 100) + '%';
+    if (k >= 1) { holdStop(); leaveFull(); return; }
+    holdRaf = requestAnimationFrame(tick);
+  })();
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => exitBtn.addEventListener(n, holdStop));
+exitBtn.addEventListener('contextmenu', e => e.preventDefault());
+exitBtn.addEventListener('click', e => { if ($('#fs-ring').hidden) toast('Mantén pulsado 2 segundos para salir de pantalla completa.'); });
+
 /* frames */
-$('#frames').addEventListener('click', e => { const b = e.target.closest('[data-frame]'); if (!b || T.playing) return; T.cur = +b.dataset.frame; renderBoard(); });
+$$('#frames, #rail-frames').forEach(el => el.addEventListener('click', e => { const b = e.target.closest('[data-frame]'); if (!b || T.playing) return; T.cur = +b.dataset.frame; renderBoard(); }));
 $('#f-add').addEventListener('click', () => { if (T.playing) return; const f = clone(T.frames[T.cur]); f.arrows = []; T.frames.splice(T.cur + 1, 0, f); T.cur++; renderBoard(); toast(`Paso ${T.cur + 1} creado. Mueve las fichas a su nueva posición.`); });
 $('#f-del').addEventListener('click', () => { if (T.playing || T.frames.length < 2) return; T.frames.splice(T.cur, 1); T.cur = Math.max(0, T.cur - 1); renderBoard(); });
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -669,10 +742,10 @@ async function boardPng() {
   const css = getComputedStyle(document.documentElement);
   let s = new XMLSerializer().serializeToString(svg);
   s = s.replace(/var\(--([\w-]+)\)/g, (_, n) => css.getPropertyValue('--' + n).trim() || '#000');
-  s = s.replace('<svg ', '<svg width="1110" height="740" ');
+  s = s.replace('<svg ', '<svg width="1150" height="780" ');
   const img = new Image();
   await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s); });
-  const c = document.createElement('canvas'); c.width = 1665; c.height = 1110;
+  const c = document.createElement('canvas'); c.width = 1725; c.height = 1170;
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, 'image/png'));
 }

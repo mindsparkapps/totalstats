@@ -131,9 +131,11 @@
             <button class="btn sm" id="t-clear" type="button">Limpiar flechas</button>
             <button class="btn sm" id="t-share" type="button">Compartir imagen</button>
             <button class="btn sm" id="t-rival" type="button" aria-pressed="true">Rival visible</button>
+            <button class="btn sm" id="t-orilla" type="button" title="Pone a los 22 jugadores en las bandas para ir distribuyéndolos">⇥ Todos a la orilla</button>
+            <button class="btn sm primary" id="t-full" type="button" title="Mejor con el celular en horizontal">⛶ Pantalla completa</button>
           </div>
         </div>
-        <svg id="pitch" viewBox="-30 -30 1110 740" role="img" aria-label="Campo de fútbol con fichas">
+        <svg id="pitch" viewBox="-50 -50 1150 780" role="img" aria-label="Campo de fútbol con fichas">
           <defs>
             <marker id="mk-pase" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--chalk)"/></marker>
             <marker id="mk-carrera" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--run)"/></marker>
@@ -143,6 +145,28 @@
           <line id="draft" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>
           <g id="g-tokens"></g>
         </svg>
+        <aside class="rail" id="rail" aria-label="Herramientas de la pizarra">
+          <button type="button" data-tool="mover" aria-pressed="true">✋ Mover</button>
+          <button type="button" data-tool="pase" aria-pressed="false">➝ Pase</button>
+          <button type="button" id="rb-tactica" aria-expanded="false">📋 Táctica ▾</button>
+          <div class="rail-sub" id="rail-forms" hidden>
+            <div class="rail-team" id="rf-team"><button type="button" data-rf-team="a" aria-pressed="true">Mi equipo</button><button type="button" data-rf-team="b" aria-pressed="false">Rival</button><button type="button" data-rf-team="ab" aria-pressed="false">Ambos</button></div>
+            <div id="rf-list"></div>
+          </div>
+          <button type="button" data-rp="t-orilla">⇥ Todos a la orilla</button>
+          <button type="button" data-tool="carrera" aria-pressed="false">⇢ Desmarque</button>
+          <button type="button" data-tool="borrar" aria-pressed="false">✕ Borrar flecha</button>
+          <hr>
+          <button type="button" data-rp="t-clear">Limpiar flechas</button>
+          <button type="button" data-rp="t-rival" id="rb-rival" aria-pressed="true">Rival visible</button>
+          <div class="rail-frames" id="rail-frames"></div>
+          <button type="button" data-rp="f-add">+ Paso</button>
+          <button type="button" data-rp="f-del" id="rb-del">Quitar paso</button>
+          <button type="button" data-rp="f-play" id="rb-play">▶ Reproducir</button>
+          <button type="button" data-rp="t-share">Compartir imagen</button>
+        </aside>
+        <button type="button" id="fs-exit" title="Mantén pulsado 2 segundos para salir" aria-label="Salir de pantalla completa (mantén pulsado 2 segundos)">✕</button>
+        <div id="fs-ring" hidden aria-live="polite"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="rgba(0,0,0,.6)" stroke="rgba(255,255,255,.25)" stroke-width="9"/><circle id="fs-arc" cx="60" cy="60" r="50" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16" transform="rotate(-90 60 60)"/></svg><b id="fs-pct">100%</b><span>para salir</span></div>
         <div class="board-tools">
           <div class="frames" id="frames"></div>
           <div class="toolbar">
@@ -192,7 +216,7 @@
       <div><div class="eyebrow">Ejercicios con cámara</div><h2>Rutina</h2></div>
       <div class="toolbar"><button class="btn primary" type="button" id="ru-new">Nueva rutina</button></div>
     </div>
-    <div class="seg" role="tablist" aria-label="Secciones de Rutina">
+    <div class="subtabs" role="tablist" aria-label="Secciones de Rutina">
       <button type="button" role="tab" data-ru="sub" data-id="entrenar" aria-selected="true">Entrenar</button>
       <button type="button" role="tab" data-ru="sub" data-id="historial" aria-selected="false">Historial</button>
       <button type="button" role="tab" data-ru="sub" data-id="estadisticas" aria-selected="false">Estadísticas</button>

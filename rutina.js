@@ -75,7 +75,7 @@ function sesionesDe(es) {
 }
 function renderHistory(es) {
   const sel = (id, opts, cur) => `<select data-ru-h="${id}" aria-label="${id}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
-  $('#ru-hist-ctl').innerHTML = `<div class="seg" role="tablist" aria-label="Qué ver">${[['ej', 'Ejercicios'], ['rut', 'Ejercicios por rutina'], ['ses', 'Rutinas']].map(([k, l]) => `<button type="button" role="tab" data-ru="hist-mode" data-id="${k}" aria-selected="${histMode === k}">${l}</button>`).join('')}</div>
+  $('#ru-hist-ctl').innerHTML = `<div class="subtabs" role="tablist" aria-label="Qué ver">${[['ej', 'Ejercicios'], ['rut', 'Ejercicios por rutina'], ['ses', 'Rutinas']].map(([k, l]) => `<button type="button" role="tab" data-ru="hist-mode" data-id="${k}" aria-selected="${histMode === k}">${l}</button>`).join('')}</div>
     <label class="f" style="min-width:160px">Jugador${sel('jug', [['', 'Todos'], ...sortedPlayers().map(j => [j.id, j.nombre])], histJug)}</label>`;
   const f = histJug ? es.filter(e => e.jugadorId === histJug) : es, box = $('#ru-history');
   if (!f.length) { box.innerHTML = '<p class="hint">Todavía no hay entrenos guardados.</p>'; return; }
