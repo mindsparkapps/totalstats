@@ -8,9 +8,22 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const EJERCICIOS = {
-  flexiones: { id: 'flexiones', nombre: 'Flexiones de brazo', unidad: 'flexiones', icono: '💪', desc: 'La cámara cuenta cada flexión, la califica de 0 a 100 y graba el video con el contador. Se coloca el celular de costado.', guia: 'Apoya el celular en el suelo, <b>de costado</b>, a 1,5–2 m y en horizontal. Que se vea el cuerpo entero.', luz: 'Elige un video de flexiones (de costado) para empezar.', pose: 'colócate en posición de plancha' },
-  sentadillas: { id: 'sentadillas', nombre: 'Sentadillas', unidad: 'sentadillas', icono: '🏋️', desc: 'La cámara cuenta cada sentadilla, la califica de 0 a 100 según lo que bajas y lo erguido que mantienes el torso, y graba el video. Se coloca el celular de costado.', guia: 'Apoya el celular en el suelo o en algo bajo, <b>de costado</b>, a 2–2,5 m y en horizontal. Que se vea de la cabeza a los pies.', luz: 'Elige un video de sentadillas (de costado) para empezar.', pose: 'ponte de pie de costado a la cámara' }
+  flexiones: { id: 'flexiones', nombre: 'Flexiones de brazo', unidad: 'flexiones', icono: '💪', desc: 'La cámara cuenta cada flexión, la califica de 0 a 100 y graba el video con el contador. Se puede colocar el celular de frente o de costado.',
+    views: [
+      { id: 'frontal', label: 'De frente (celular vertical, cámara frontal)', facing: 'user', svg: 'front', guia: 'Apoya el celular <b>en vertical</b> en el suelo, con la <b>cámara frontal</b>, frente a ti. Ponte en plancha con la <b>cabeza hacia la cámara</b> y los pies al fondo, a 1–1,5 m. Que se vean la cabeza, los hombros y las manos.', ajuste: 'aleja un poco el celular: deben verse la cabeza, los hombros y las manos.', luz: 'Elige un video de flexiones (de frente) para empezar.', pose: 'ponte en plancha con la cabeza hacia la cámara' },
+      { id: 'lateral', label: 'De costado (celular horizontal)', facing: 'environment', svg: 'side', guia: 'Apoya el celular en el suelo, <b>de costado</b>, a 1,5–2 m y en horizontal. Que se vea el cuerpo entero.', ajuste: 'aleja el celular y ponlo de costado.', luz: 'Elige un video de flexiones (de costado) para empezar.', pose: 'colócate en posición de plancha' }
+    ] },
+  sentadillas: { id: 'sentadillas', nombre: 'Sentadillas', unidad: 'sentadillas', icono: '🏋️', desc: 'La cámara cuenta cada sentadilla, la califica de 0 a 100 según lo que bajas y lo erguido que mantienes el torso, y graba el video. Se coloca el celular de costado.',
+    views: [{ id: 'lateral', label: 'De costado', facing: 'environment', svg: 'squat', guia: 'Apoya el celular en el suelo o en algo bajo, <b>de costado</b>, a 2–2,5 m y en horizontal. Que se vea de la cabeza a los pies.', ajuste: 'aleja el celular y ponte de costado.', luz: 'Elige un video de sentadillas (de costado) para empezar.', pose: 'ponte de pie de costado a la cámara' }] },
+  bulgaras: { id: 'bulgaras', nombre: 'Sentadilla búlgara', unidad: 'sentadillas búlgaras', icono: '🦵', desc: 'Con un pie atrás sobre un banco. La cámara mide la rodilla de la pierna de adelante, cuenta cada repetición y la califica. Se coloca el celular de costado.',
+    views: [{ id: 'lateral', label: 'De costado', facing: 'environment', svg: 'squat', guia: 'Apoya el celular en el suelo, <b>de costado</b>, a 2–2,5 m y en horizontal. Que se vean la cabeza, las dos piernas y el banco.', ajuste: 'aleja el celular y ponte de costado, con las dos piernas a la vista.', luz: 'Elige un video de sentadillas búlgaras (de costado) para empezar.', pose: 'ponte de costado, con el pie de atrás en el banco' }] },
+  abdominales: { id: 'abdominales', nombre: 'Abdominales', unidad: 'abdominales', icono: '🔥', desc: 'La cámara mide cuánto incorporas el tronco, cuenta cada abdominal y lo califica. Acostado, con el celular de costado.',
+    views: [{ id: 'lateral', label: 'De costado', facing: 'environment', svg: 'side', guia: 'Apoya el celular en el suelo, <b>de costado</b>, a 1,5–2 m y en horizontal. Acuéstate de modo que se vea el cuerpo entero.', ajuste: 'aleja el celular y ponlo de costado.', luz: 'Elige un video de abdominales (de costado) para empezar.', pose: 'acuéstate de costado a la cámara' }] },
+  laterales: { id: 'laterales', nombre: 'Elevaciones laterales con mancuernas', unidad: 'elevaciones', icono: '🏋️‍♂️', desc: 'De frente a la cámara: mide hasta dónde subes los brazos (la altura del hombro es lo ideal) y si los mantienes casi rectos.',
+    views: [{ id: 'frontal', label: 'De frente', facing: 'user', svg: 'standing', guia: 'Apoya el celular <b>en vertical</b>, con la cámara frontal, frente a ti, a 2 m. Ponte de pie de frente: deben verse los hombros, los brazos y la cadera.', ajuste: 'aleja el celular: deben verse los hombros, los brazos y la cadera.', luz: 'Elige un video de elevaciones laterales (de frente) para empezar.', pose: 'ponte de pie de frente a la cámara' }] }
 };
+const viewsOf = id => (EJERCICIOS[id] || EJERCICIOS.flexiones).views;
+const viewOf = id => { const vs = viewsOf(id), saved = lsGet('ts-view-' + id); return vs.find(v => v.id === saved) || vs[0]; };
 const unidadDe = id => (EJERCICIOS[id] || EJERCICIOS.flexiones).unidad;
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const NOTE_COLORS = { Excelente: '#2ecc71', Buena: '#8bd450', Regular: '#f0a92e', Incompleta: '#e74c4c' };
@@ -92,7 +105,7 @@ async function shareOrDownload(blob, name) {
 }
 function repsTable(reps) {
   return `<div class="tbl-wrap"><table><thead><tr><th class="n">#</th><th class="n">Nota</th><th>Resultado</th><th class="n">Prof.</th><th class="n">Ext.</th><th class="n">Alin.</th><th class="n">Ctrl.</th><th class="n">Dur.</th><th class="n">Ángulo mín.</th><th class="n" title="Cuánto sube y baja el cuerpo, en % del largo del torso">Recorrido</th></tr></thead><tbody>
-    ${(reps || []).map(r => `<tr><td class="n">${r.n}</td><td class="n">${noteBadge(r.nota)}</td><td>${labelOf(r.nota)}</td><td class="n">${r.prof}</td><td class="n">${r.ext}</td><td class="n">${r.alin}</td><td class="n">${r.ctrl}</td><td class="n">${(+r.dur).toFixed(1)} s</td><td class="n">${r.angMin}°</td><td class="n">${r.caida != null ? r.caida + ' %' : '–'}</td></tr>`).join('')}</tbody></table></div>`;
+    ${(reps || []).map(r => `<tr><td class="n">${r.n}</td><td class="n">${noteBadge(r.nota)}</td><td>${labelOf(r.nota)}</td><td class="n">${r.prof}</td><td class="n">${r.ext}</td><td class="n">${r.alin}</td><td class="n">${r.ctrl}</td><td class="n">${(+r.dur).toFixed(1)} s</td><td class="n">${r.angMin != null ? r.angMin + '°' : '–'}</td><td class="n">${r.caida != null ? r.caida + ' %' : '–'}</td></tr>`).join('')}</tbody></table></div>`;
 }
 const repsChart = reps => `<div class="chart">${lineChart((reps || []).map(r => ({ label: String(r.n), value: r.nota / 10 })), { h: 190 })}</div><p class="hint" style="margin:0">Nota de cada repetición (escala 0–100 mostrada como 0–10).</p>`;
 async function openEntreno(id) {
@@ -123,7 +136,10 @@ async function deleteVideoOf(e) {
 let ex = null, modPromise = null;
 const loadMod = () => (modPromise || (modPromise = import('./pushup.js').catch(err => { modPromise = null; throw err; })));
 const GUIDE_SVG = `<svg viewBox="0 0 220 110" class="ex-guide-svg" role="img" aria-label="El celular en el suelo, de costado al jugador"><rect x="1" y="1" width="218" height="108" rx="10" fill="none" stroke="currentColor" opacity=".25"/><line x1="10" y1="92" x2="210" y2="92" stroke="currentColor" opacity=".5"/><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"><line x1="95" y1="62" x2="170" y2="82"/><line x1="95" y1="62" x2="92" y2="90"/><line x1="170" y1="82" x2="176" y2="90"/></g><circle cx="86" cy="56" r="9" fill="currentColor"/><rect x="12" y="68" width="26" height="24" rx="4" fill="var(--accent)"/><path d="M40 78l36-12" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/><text x="16" y="62" font-size="11" fill="currentColor">celular</text><text x="110" y="30" font-size="11" fill="currentColor">1,5 – 2 m · de costado</text></svg>`;
+const GUIDE_FRONT_SVG = `<svg viewBox="0 0 220 110" class="ex-guide-svg" role="img" aria-label="El celular vertical en el suelo, la persona en plancha con la cabeza hacia la cámara"><rect x="1" y="1" width="218" height="108" rx="10" fill="none" stroke="currentColor" opacity=".25"/><line x1="10" y1="92" x2="210" y2="92" stroke="currentColor" opacity=".5"/><rect x="14" y="52" width="14" height="40" rx="3" fill="var(--accent)"/><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"><line x1="70" y1="52" x2="62" y2="90"/><line x1="110" y1="52" x2="118" y2="90"/><line x1="70" y1="52" x2="110" y2="52"/><line x1="90" y1="52" x2="190" y2="58"/></g><circle cx="90" cy="40" r="9" fill="currentColor"/><text x="34" y="46" font-size="11" fill="currentColor">celular vertical</text><text x="100" y="28" font-size="11" fill="currentColor">1 – 1,5 m · cabeza hacia la cámara</text></svg>`;
+const GUIDE_STANDING_SVG = `<svg viewBox="0 0 220 110" class="ex-guide-svg" role="img" aria-label="El celular vertical frente a la persona de pie"><rect x="1" y="1" width="218" height="108" rx="10" fill="none" stroke="currentColor" opacity=".25"/><line x1="10" y1="100" x2="210" y2="100" stroke="currentColor" opacity=".5"/><rect x="20" y="62" width="14" height="38" rx="3" fill="var(--accent)"/><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"><line x1="150" y1="34" x2="150" y2="68"/><line x1="150" y1="68" x2="140" y2="98"/><line x1="150" y1="68" x2="160" y2="98"/><line x1="150" y1="40" x2="124" y2="48"/><line x1="150" y1="40" x2="176" y2="48"/></g><circle cx="150" cy="24" r="9" fill="currentColor"/><text x="40" y="56" font-size="11" fill="currentColor">celular vertical</text><text x="60" y="22" font-size="11" fill="currentColor">2 m · de frente</text></svg>`;
 const GUIDE_SQUAT_SVG = `<svg viewBox="0 0 220 110" class="ex-guide-svg" role="img" aria-label="El celular a un lado, la persona de costado"><rect x="1" y="1" width="218" height="108" rx="10" fill="none" stroke="currentColor" opacity=".25"/><line x1="10" y1="96" x2="210" y2="96" stroke="currentColor" opacity=".5"/><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"><line x1="150" y1="34" x2="146" y2="60"/><line x1="146" y1="60" x2="168" y2="68"/><line x1="168" y1="68" x2="160" y2="94"/><line x1="146" y1="60" x2="128" y2="52"/></g><circle cx="152" cy="24" r="9" fill="currentColor"/><rect x="12" y="72" width="26" height="24" rx="4" fill="var(--accent)"/><path d="M40 80l70-8" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/><text x="16" y="66" font-size="11" fill="currentColor">celular</text><text x="40" y="30" font-size="11" fill="currentColor">2 – 2,5 m · de costado</text></svg>`;
+const GUIDES = { front: GUIDE_FRONT_SVG, standing: GUIDE_STANDING_SVG, squat: GUIDE_SQUAT_SVG, side: GUIDE_SVG };
 const panel = () => $('#ex-panel');
 
 function beep(freq = 880, ms = 120) {
@@ -148,7 +164,7 @@ async function openExercise(rutina, ejercicio = 'flexiones') {
   if (ex) return;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { if (!$('#ru-dev-file').checked) { toast('Este navegador no permite usar la cámara. En modo desarrollador puedes usar un archivo de video.'); return; } }
   const queue = buildQueue(rutina, ejercicio); if (!queue.length) { toast('Esa rutina no tiene ejercicios.'); return; }
-  ex = { rutina, queue, idx: 0, jugadorId: rutina && rutina.jugadorId || '', objetivo: queue[0].reps, facing: 'environment', fileMode: $('#ru-dev-file').checked, state: 'prep', stream: null, session: null, mod: null, fileUrl: null, blobUrl: null, audio: null, visible: false, devices: 0, sessionToken: 0 };
+  ex = { rutina, queue, idx: 0, jugadorId: rutina && rutina.jugadorId || '', objetivo: queue[0].reps, facing: viewOf(queue[0].ejercicio).facing, facingManual: false, view: null, fileMode: $('#ru-dev-file').checked, state: 'prep', stream: null, session: null, mod: null, fileUrl: null, blobUrl: null, audio: null, visible: false, devices: 0, sessionToken: 0 };
   $('#dlg-ejercicio').showModal();
   showPrep();
   if (!ex.fileMode) await startCamera();
@@ -176,13 +192,15 @@ async function newSession() {
   const token = ++ex.sessionToken, v = $('#ex-video'), c = $('#ex-canvas');
   if (ex.session) { try { await ex.session.stop(); } catch {} ex.session = null; }
   ex.visible = false; updateStart();
-  const q = ex.queue[ex.idx], def = EJERCICIOS[q.ejercicio];
+  const q = ex.queue[ex.idx], def = viewOf(q.ejercicio); ex.view = def;
+  // la posición del celular decide la cámara: de frente = frontal, de costado = trasera (salvo que el usuario la haya cambiado a mano)
+  if (!ex.fileMode && !ex.facingManual && ex.facing !== def.facing) { ex.facing = def.facing; await startCamera(); if (!ex || token !== ex.sessionToken) return; }
   if (ex.fileMode && !v.src) { setLight('wait', def.luz); return; }
   setLight('wait', 'Cargando detector… (solo la primera vez)');
   try {
     ex.mod = await loadMod();
     const session = await ex.mod.startSession({
-      exercise: q.ejercicio, video: v, canvas: c, mirror: !ex.fileMode && ex.facing === 'user', devTracking: devTracking,
+      exercise: q.ejercicio, view: def.id, video: v, canvas: c, mirror: !ex.fileMode && ex.facing === 'user', devTracking: devTracking,
       onRep: onRep, onState: onState
     });
     if (!ex || token !== ex.sessionToken) { session.stop(); return; }
@@ -200,7 +218,7 @@ function onState(s) {
   ex.visible = s.visible;
   if (ex.state === 'prep') {
     const k = s.visible ? 'ok' : 'wait';
-    if (k !== lastLight) { lastLight = k; setLight(k, s.visible ? 'Cuerpo completo visible ✔' : 'Cuerpo no visible: aleja el celular y ponlo de costado.'); }
+    if (k !== lastLight) { lastLight = k; setLight(k, s.visible ? 'Cuerpo completo visible ✔' : `Cuerpo no visible: ${ex.view ? ex.view.ajuste : 'aleja el celular.'}`); }
     updateStart();
   }
 }
@@ -217,12 +235,14 @@ const voiceBtn = () => `<button class="btn ghost sm" type="button" data-ru="ex-v
 
 function showPrep() {
   ex.state = 'prep'; lastLight = '';
-  const q = ex.queue[ex.idx], e = EJERCICIOS[q.ejercicio];
+  const q = ex.queue[ex.idx], e = EJERCICIOS[q.ejercicio], vw = viewOf(q.ejercicio);
   setMsg('');
   panel().innerHTML = `<div class="ex-prep">
-    <div class="ex-guide">${q.ejercicio === 'sentadillas' ? GUIDE_SQUAT_SVG : GUIDE_SVG}<p class="hint">${e.guia}</p></div>
+    <div class="ex-guide">${GUIDES[vw.svg] || GUIDE_SVG}<p class="hint">${vw.guia}</p></div>
     <div class="ex-form">
       <div><h3>${esc(e.nombre)}</h3><div class="hint">${ex.rutina ? esc(ex.rutina.nombre) + ' · ' : 'Práctica libre · '}${q.label || 'Serie única'}</div></div>
+      ${viewsOf(q.ejercicio).length > 1 ? `<label class="f">Posición del celular<select id="ex-view">${viewsOf(q.ejercicio).map(x => `<option value="${x.id}" ${x.id === vw.id ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>` : ''}
+      <p class="hint ex-guide-m">${vw.guia}</p>
       <div class="ex-light" id="ex-light" data-s="wait" role="status">Cargando detector… (solo la primera vez)</div>
       <div class="frow"><label class="f">Jugador (opcional)<select id="ex-player">${playerOptions(ex.jugadorId)}</select></label>
         <label class="f">Objetivo de reps (0 = libre)<input type="number" id="ex-obj" min="0" max="500" value="${ex.objetivo}"></label></div>
@@ -234,6 +254,7 @@ function showPrep() {
     </div></div>`;
   const sw = $('#ex-switch'); if (sw) sw.hidden = ex.devices < 2;
   $('#ex-player').addEventListener('change', e2 => { ex.jugadorId = e2.target.value; });
+  const vsel = $('#ex-view'); if (vsel) vsel.addEventListener('change', e2 => { lsSet('ts-view-' + q.ejercicio, e2.target.value); ex.facingManual = false; showPrep(); newSession(); });
   $('#ex-obj').addEventListener('input', e2 => { ex.objetivo = Math.max(0, +e2.target.value || 0); });
   const f = $('#ex-file'); if (f) f.addEventListener('change', async e2 => {
     const file = e2.target.files[0]; if (!file) return;
@@ -355,7 +376,7 @@ document.addEventListener('click', async e => {
       $('#dlg-entreno').close();
     }); break;
     case 'ex-start': startCountdown(); break;
-    case 'ex-switch': ex.facing = ex.facing === 'user' ? 'environment' : 'user'; await startCamera(); newSession(); break;
+    case 'ex-switch': ex.facing = ex.facing === 'user' ? 'environment' : 'user'; ex.facingManual = true; await startCamera(); newSession(); break;
     case 'ex-retry': t.hidden = true; newSession(); break;
     case 'ex-pause': if (ex.session) { if (ex.session.paused) { ex.session.resume(); t.textContent = 'Pausa'; if (ex.fileMode) $('#ex-video').play(); } else { ex.session.pause(); t.textContent = 'Reanudar'; if (ex.fileMode) $('#ex-video').pause(); } } break;
     case 'ex-finish': finishSerie(); break;

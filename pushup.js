@@ -67,7 +67,77 @@ export const SQUAT_CFG = {
   lowFps: 12
 };
 
-export const EXERCISE_CFG = { flexiones: PUSHUP_CFG, sentadillas: SQUAT_CFG };
+// --- Flexiones DE FRENTE: celular vertical con la cámara frontal, cabeza hacia la cámara y pies al fondo ---
+// De frente el ángulo del codo no sirve (los brazos apuntan a la cámara). Se usa lo que sí se ve:
+// la altura de la cabeza (nariz, ojos, orejas, boca) y de los hombros sobre las muñecas, medida en «anchos de manos»
+// (las manos están quietas en el suelo, así que su separación es una regla que no cambia).
+export const PUSHUP_FRONT_CFG = {
+  ...PUSHUP_CFG,
+  kind: 'pushup-front', view: 'frontal', noAngle: true,
+  keys: ['sh', 'wr'],
+  vMode: 'frontPushup', vWeight: 1, vMinRange: 0.12, vWindow: 8,
+  upDone: 155, upDoneMin: 140, downGap: 25,   // en «ángulos equivalentes» del canal vertical
+  riseDelta: 12, settleDrop: 5, minRepSec: 0.5,
+  plankMin: null,
+  profC: { zero: 40, full: 85 },              // recorrido vertical de la repetición, % del ancho de manos
+  prof: { w: 80, zero: 120, full: 75 }, ext: { w: 0, zero: 145, full: 165 }, alin: { w: 0, zero: 145, full: 170 },
+  ctrl: { w: 20, tooFast: 0.5, okMin: 1.2, okMax: 3, tooSlow: 6 },
+  tips: { prof: 'Baja más el pecho', ext: '', alin: '', fast: 'Más despacio', slow: 'Algo más fluido', ok: '¡Muy bien!' },
+  warnPosture: ''
+};
+
+// --- Abdominales: celular de costado; ángulo del tronco (hombro-cadera-rodilla) y altura de hombros y cabeza ---
+export const CRUNCH_CFG = {
+  ...SQUAT_CFG,
+  id: 'abdominales', unit: 'abdominal', units: 'abdominales', kind: 'crunch', view: 'lateral',
+  keys: ['sh', 'hip'], floor: [23, 24], vw: [0.5, 0.5, 0], vInvert: true, vBottom: 90,
+  angLabel: v => `${Math.round(180 - v)}° tronco`,
+  upDone: 168, upDoneMin: 160, downGap: 14, minRepSec: 0.6, maxRepSec: 15,
+  prof: { w: 60, zero: 160, full: 105 }, ext: { w: 25, zero: 150, full: 172 }, alin: { w: 0, zero: 70, full: 35 },
+  ctrl: { w: 15, tooFast: 0.6, okMin: 1.2, okMax: 4, tooSlow: 8 },
+  tips: { prof: 'Sube más el torso', ext: 'Baja del todo hasta el suelo', alin: '', fast: 'Más despacio', slow: 'Algo más fluido', ok: '¡Muy bien!' }
+};
+
+// --- Sentadilla búlgara: celular de costado; se mide la rodilla de la pierna de adelante (la del tobillo más bajo) ---
+export const BULGARIAN_CFG = {
+  ...SQUAT_CFG,
+  id: 'bulgaras', unit: 'sentadilla búlgara', units: 'sentadillas búlgaras', kind: 'bulgarian', view: 'lateral',
+  floorMode: 'lowest', minRepSec: 1.0, maxRepSec: 25,
+  prof: { w: 50, zero: 140, full: 95 },
+  ctrl: { w: 10, tooFast: 0.8, okMin: 1.5, okMax: 4.5, tooSlow: 9 },
+  tips: { prof: 'Baja más la cadera', ext: 'Termina de pararte arriba', alin: 'Mantén el pecho erguido', fast: 'Más despacio', slow: 'Algo más fluido', ok: '¡Muy bien!' }
+};
+
+// --- Elevaciones laterales con mancuernas: de frente a la cámara; ángulo de elevación de los brazos (0° = abajo, 90° = a la altura del hombro).
+// La señal es 180° − elevación, para que «brazos abajo» sea el valor alto como en los demás ejercicios.
+export const RAISE_CFG = {
+  ...PUSHUP_CFG,
+  id: 'laterales', unit: 'elevación', units: 'elevaciones', kind: 'raise', view: 'frontal',
+  keys: ['sh', 'el', 'wr', 'hip'],
+  vMode: 'wrists', vInvert: true, vTop: 170, vBottom: 90, vWeight: 0.35, vMinRange: 0.15,
+  upDone: 160, upDoneMin: 145, downGap: 25, riseDelta: 10, minRepSec: 0.8, maxRepSec: 12,
+  plankMin: null, alignWorst: 'min',
+  prof: { w: 45, zero: 125, full: 90 },    // señal mínima: 90 = brazos a la altura de los hombros
+  ext: { w: 15, zero: 140, full: 165 },    // señal máxima: brazos bien abajo
+  alin: { w: 25, zero: 110, full: 155 },   // ángulo del codo: brazos casi rectos
+  ctrl: { w: 15, tooFast: 0.8, okMin: 1.6, okMax: 4, tooSlow: 8 },
+  angLabel: v => `${Math.round(180 - v)}° elev.`,
+  tips: { prof: 'Sube hasta la altura de los hombros', ext: 'Baja del todo los brazos', alin: 'Mantén los brazos casi rectos', fast: 'Más despacio, sin balanceo', slow: 'Algo más fluido', ok: '¡Muy bien!' },
+  warnPosture: ''
+};
+
+// Configuración de cada ejercicio y de cada posición del celular. La primera vista de cada lista es la predeterminada.
+export const EXERCISE_CFG = {
+  flexiones: { frontal: PUSHUP_FRONT_CFG, lateral: PUSHUP_CFG },
+  sentadillas: { lateral: SQUAT_CFG },
+  abdominales: { lateral: CRUNCH_CFG },
+  bulgaras: { lateral: BULGARIAN_CFG },
+  laterales: { frontal: RAISE_CFG }
+};
+export function getCfg(exercise, view) {
+  const e = EXERCISE_CFG[exercise] || EXERCISE_CFG.flexiones;
+  return e[view] || Object.values(e)[0];
+}
 
 export const NOTE_COLORS = { Excelente: '#2ecc71', Buena: '#8bd450', Regular: '#f0a92e', Incompleta: '#e74c4c' };
 
@@ -113,37 +183,86 @@ function avgPts(lms, idxs, w, h, mirror, minV = 0.3) {
   return n ? { x: sx / n, y: sy / n, n } : null;
 }
 
-// Canal vertical: altura de la cabeza (nariz, ojos, orejas, boca), hombros y cadera sobre el suelo, en largos de torso.
+// Canal vertical: altura del cuerpo medida contra una referencia fija. Según cfg.vMode:
+//  'body'        cabeza (nariz, ojos, orejas, boca), hombros y cadera sobre el suelo, en largos de torso
+//  'frontPushup' cabeza y hombros sobre las muñecas, en anchos de manos (flexiones de frente)
+//  'wrists'      muñecas sobre la cadera, en largos de torso (elevaciones laterales)
 export function verticalPose(lms, w, h, mirror = false, cfg = PUSHUP_CFG) {
+  const mode = cfg.vMode || 'body';
   const head = avgPts(lms, FACE, w, h, mirror), sh = avgPts(lms, [11, 12], w, h, mirror), hip = avgPts(lms, [23, 24], w, h, mirror);
-  const floor = avgPts(lms, cfg.floor, w, h, mirror);
+  const wr = avgPts(lms, [15, 16], w, h, mirror);
+  const out = (vh, o) => ({ vh, head: null, sh: null, hip: null, floorY: null, headY: null, shY: sh ? sh.y : null, hipY: hip ? hip.y : null, torso: 0, faceN: head ? head.n : 0, floorName: 'suelo', headName: 'cabeza', shName: 'hombros', ...o });
+  if (mode === 'frontPushup') {
+    // la regla es la separación de las muñecas; si no se ven las dos, el ancho de hombros
+    const wl = lms[15], wrr = lms[16], okW = wl && wrr && visOf(lms, 15) >= 0.3 && visOf(lms, 16) >= 0.3;
+    const span = okW ? Math.hypot((wl.x - wrr.x) * w, (wl.y - wrr.y) * h) : (lms[11] && lms[12] ? Math.hypot((lms[11].x - lms[12].x) * w, (lms[11].y - lms[12].y) * h) : 0);
+    if (!sh || !wr || span < 20) return null;
+    const H = p => (p ? (wr.y - p.y) / span : null);
+    const parts = [[H(head), 0.5], [H(sh), 0.5]].filter(x => x[0] != null);
+    const vh = parts.reduce((a, x) => a + x[0] * x[1], 0) / parts.reduce((a, x) => a + x[1], 0);
+    return out(vh, { head: H(head), sh: H(sh), floorY: wr.y, headY: head ? head.y : null, torso: span, floorName: 'muñecas' });
+  }
+  if (mode === 'wrists') {
+    if (!sh || !hip || !wr) return null;
+    const torso = Math.hypot(sh.x - hip.x, sh.y - hip.y);
+    if (torso < 20) return null;
+    const vh = (hip.y - wr.y) / torso;
+    return out(vh, { head: vh, sh: (hip.y - sh.y) / torso, floorY: hip.y, headY: wr.y, torso, floorName: 'cadera', headName: 'muñecas' });
+  }
+  let floor = avgPts(lms, cfg.floor, w, h, mirror);
+  if (floor && cfg.floorMode === 'lowest') {      // el apoyo es el punto más bajo (sentadilla búlgara: el pie de adelante)
+    const pts = cfg.floor.filter(i => visOf(lms, i) >= 0.3).map(i => lms[i].y * h);
+    if (pts.length) floor = { x: floor.x, y: Math.max(...pts), n: floor.n };
+  }
   if (!sh || !hip || !floor) return null;
   const torso = Math.hypot(sh.x - hip.x, sh.y - hip.y);
   if (torso < 20) return null;
   const H = p => (p ? (floor.y - p.y) / torso : null);
-  const parts = [[H(head), 0.4], [H(sh), 0.35], [H(hip), 0.25]].filter(x => x[0] != null);
+  const vw = cfg.vw || [0.4, 0.35, 0.25];
+  const parts = [[H(head), vw[0]], [H(sh), vw[1]], [H(hip), vw[2]]].filter(x => x[0] != null && x[1] > 0);
   const vh = parts.reduce((a, x) => a + x[0] * x[1], 0) / parts.reduce((a, x) => a + x[1], 0);
-  return { vh, head: H(head), sh: H(sh), hip: H(hip), floorY: floor.y, headY: head ? head.y : null, shY: sh.y, hipY: hip.y, torso, faceN: head ? head.n : 0 };
+  return out(vh, { head: H(head), sh: H(sh), hip: H(hip), floorY: floor.y, headY: head ? head.y : null, torso });
 }
 
 // Mide una pose: landmarks normalizados (x,y en 0..1) y el tamaño de la imagen (para ángulos reales).
 // Fusiona los dos lados del cuerpo (ponderados por visibilidad). Devuelve { ang, align, depth, vis, vert }.
 export function measurePose(lms, side, w, h, mirror = false, cfg = PUSHUP_CFG) {
+  const leanOf = (sh, hip) => (Math.atan2(Math.abs(sh.x - hip.x), hip.y - sh.y) * 180) / Math.PI; // 0 = erguido
   const one = sd => {
     const ix = SIDES[sd];
     const P = k => { const p = lms[ix[k]]; return { x: (mirror ? 1 - p.x : p.x) * w, y: p.y * h }; };
     const vis = sideVisibility(lms, sd, cfg.keys);
-    if (cfg.kind === 'squat') {
+    if (cfg.kind === 'pushup-front') return { ang: null, align: null, depth: null, vis };
+    if (cfg.kind === 'squat' || cfg.kind === 'bulgarian') {
       const sh = P('sh'), hip = P('hip'), kn = P('kn'), an = P('an');
-      // inclinación del torso respecto de la vertical (0 = erguido)
-      const lean = (Math.atan2(Math.abs(sh.x - hip.x), hip.y - sh.y) * 180) / Math.PI;
-      return { ang: angle(hip, kn, an), align: lean, depth: null, vis };
+      return { ang: angle(hip, kn, an), align: leanOf(sh, hip), depth: null, vis, anY: an.y };
+    }
+    if (cfg.kind === 'crunch') {
+      // inclinación del tronco sobre el suelo (0° acostado, 90° sentado), sin depender de cuánto se flexionen las rodillas.
+      // La señal es 180° − inclinación: acostado = 180 (valor alto, posición de partida), sentado = 90
+      const sh = P('sh'), hip = P('hip');
+      const elev = (Math.atan2(hip.y - sh.y, Math.abs(sh.x - hip.x)) * 180) / Math.PI;
+      return { ang: 180 - Math.max(0, elev), align: null, depth: null, vis };
+    }
+    if (cfg.kind === 'raise') {                        // elevación del brazo = ángulo cadera-hombro-muñeca (0° abajo, 90° al lado)
+      const el = angle(P('hip'), P('sh'), P('wr'));
+      return { ang: el == null ? null : 180 - el, align: angle(P('sh'), P('el'), P('wr')), depth: null, vis };
     }
     const sh = P('sh'), el = P('el'), wr = P('wr'), hip = P('hip'), an = P('an');
     const fore = Math.hypot(wr.x - el.x, wr.y - el.y);
     return { ang: angle(sh, el, wr), align: angle(sh, hip, an), depth: fore > 1 ? (wr.y - sh.y) / fore : null, vis };
   };
-  const main = one(side), other = one(side === 'left' ? 'right' : 'left');
+  if (cfg.kind === 'pushup-front') {
+    // de frente no hay «lado»: la visibilidad es la de hombros y muñecas de los dos lados
+    const vis = [11, 12, 15, 16].reduce((a, i) => a + visOf(lms, i), 0) / 4;
+    return { ang: null, align: null, depth: null, vis, visOther: vis, vert: verticalPose(lms, w, h, mirror, cfg) };
+  }
+  let main = one(side), other = one(side === 'left' ? 'right' : 'left');
+  if (cfg.kind === 'bulgarian') {
+    // la pierna de adelante es la del tobillo más bajo en la imagen (la de atrás está apoyada en un banco)
+    const lo = main.anY >= other.anY ? main : other;
+    return { ang: lo.ang, align: lo.align, depth: null, vis: Math.max(main.vis, other.vis), visOther: Math.min(main.vis, other.vis), vert: verticalPose(lms, w, h, mirror, cfg) };
+  }
   let ang = main.ang, align = main.align;
   // el otro lado ayuda si también se ve: media ponderada por visibilidad
   if (other.vis >= cfg.minVis && other.ang != null && main.ang != null) {
@@ -160,9 +279,10 @@ export function labelFor(nota, cfg = PUSHUP_CFG) {
 
 // Califica una repetición: m = { angMin, angMax, alignMin, dur }. Devuelve criterios 0..100, nota 0..100, etiqueta y consejo.
 export function scoreRep(m, cfg = PUSHUP_CFG) {
-  const prof = lin(m.angMin, cfg.prof.zero, cfg.prof.full);
-  const ext = lin(m.angMax, cfg.ext.zero, cfg.ext.full);
-  const alin = lin(m.alignMin, cfg.alin.zero, cfg.alin.full);
+  // sin ángulo fiable (flexiones de frente) la profundidad sale del recorrido vertical; un criterio con peso 0 no resta
+  const prof = cfg.profC && m.caida != null ? lin(m.caida, cfg.profC.zero, cfg.profC.full) : lin(m.angMin, cfg.prof.zero, cfg.prof.full);
+  const ext = cfg.ext.w ? lin(m.angMax, cfg.ext.zero, cfg.ext.full) : 100;
+  const alin = cfg.alin.w ? lin(m.alignMin, cfg.alin.zero, cfg.alin.full) : 100;
   const c = cfg.ctrl, T = cfg.tips || PUSHUP_CFG.tips;
   const ctrl = m.dur <= c.tooFast ? 0
     : m.dur < c.okMin ? lin(m.dur, c.tooFast, c.okMin)
@@ -206,9 +326,9 @@ function finishRep(st, cfg) {
   if (dur < cfg.minRepSec) { st.discarded++; return { type: 'discard', reason: 'rapida', dur }; }
   st.count++;
   st.topRef = st.topRef == null ? r.mMax : 0.6 * st.topRef + 0.4 * r.mMax;
-  const sc = scoreRep({ angMin: r.angMin, angMax: r.angMax, alignMin: r.alignMin, dur }, cfg);
-  const caida = r.vMax > r.vMin ? Math.round((r.vMax - r.vMin) * 100) : null; // recorrido vertical, % del torso
-  return { type: 'rep', rep: { n: st.count, ...sc, dur: Math.round(dur * 100) / 100, angMin: Math.round(r.angMin), caida, t: Math.round(r.t0 * 100) / 100 } };
+  const caida = r.vMax > r.vMin ? Math.round((r.vMax - r.vMin) * 100) : null; // recorrido vertical, % de la regla (torso o ancho de manos)
+  const sc = scoreRep({ angMin: r.angMin, angMax: r.angMax, alignMin: r.alignMin, dur, caida }, cfg);
+  return { type: 'rep', rep: { n: st.count, ...sc, dur: Math.round(dur * 100) / 100, angMin: cfg.noAngle ? null : Math.round(r.angMin), caida, t: Math.round(r.t0 * 100) / 100 } };
 }
 function dropRep(st, reason) {
   st.rep = null; st.settle = false; st.phase = 'ARRIBA'; st.armed = false; st.discarded++;
@@ -274,7 +394,8 @@ export function verticalAngle(buf, v, cfg = PUSHUP_CFG) {
   let lo = Infinity, hi = -Infinity;
   for (const p of buf) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; }
   const range = hi - lo;
-  if (range < cfg.vMinRange) return null;
+  // sin recorrido todavía = la persona está quieta en la posición de partida («arriba»): así la primera repetición también cuenta
+  if (range < cfg.vMinRange) return cfg.vTop;
   return cfg.vBottom + (cfg.vTop - cfg.vBottom) * clamp((v - lo) / range, 0, 1);
 }
 // Fusiona el ángulo (si se ve) y el canal vertical (si ya hay recorrido). Devuelve la señal principal o null.
@@ -337,7 +458,7 @@ const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStar
 export async function startSession(opts) {
   const { video, canvas, onRep = () => {}, onState = () => {}, mirror = false } = opts;
   let dev = typeof opts.devTracking === 'function' ? opts.devTracking : () => !!opts.devTracking;
-  const cfg = EXERCISE_CFG[opts.exercise] || PUSHUP_CFG;
+  const cfg = getCfg(opts.exercise, opts.view);
   const det = await loadDetector();
   const ctx = canvas.getContext('2d');
   const useVideoClock = !video.srcObject;           // con un archivo, el tiempo es el del video
@@ -387,13 +508,15 @@ export async function startSession(opts) {
       side = pickSide(lms, side, cfg);
       const m = measurePose(lms, side, canvas.width, canvas.height, mirror, cfg);
       lastMeas = m;
-      const angOk = m.vis >= cfg.minVis && m.ang != null && m.align != null;
+      const angOk = m.vis >= cfg.minVis && m.ang != null;
       // canal vertical: altura del cuerpo normalizada con el recorrido de los últimos segundos
-      const vh = m.vert ? m.vert.vh : null, tn = t1 / 1000;
+      // (vInvert: en abdominales y elevaciones laterales la posición de partida es la «baja», se invierte para que «arriba» sea el valor alto)
+      const vh0 = m.vert ? m.vert.vh : null, vh = vh0 == null ? null : (cfg.vInvert ? -vh0 : vh0), tn = t1 / 1000;
       if (vh != null) { vbuf.push({ t: tn, v: vh }); while (vbuf.length && tn - vbuf[0].t > cfg.vWindow) vbuf.shift(); }
       vAng = verticalAngle(vbuf, vh, cfg);
       const main = fuseMain(angOk ? m.ang : null, vAng, cfg);
-      visible = main != null && (angOk || m.vis >= 0.25);
+      // sin ángulo (flexiones de frente) basta con ver hombros y muñecas con cierta claridad
+      visible = main != null && (angOk || m.vis >= (cfg.noAngle ? cfg.minVis : 0.25));
       if (visible) {
         sm.ang = angOk ? ema(sm.ang, m.ang, cfg.smoothAlpha) : null;
         sm.main = ema(sm.main, main, cfg.smoothAlpha);
@@ -413,7 +536,7 @@ export async function startSession(opts) {
   }
 
   function drawHud(W, H) {
-    const u = H / 720;
+    const u = Math.min(W / 1280, H / 720); // escala: igual en horizontal y en vertical (celular de pie)
     ctx.save();
     ctx.textBaseline = 'alphabetic';
     // contador
@@ -461,7 +584,7 @@ export async function startSession(opts) {
   // Modo desarrollador: los 33 puntos del cuerpo (cara, manos y pies incluidos), las líneas de altura y las señales
   function drawDev(W, H) {
     if (!lastLms) return;
-    const u = H / 720, ix = SIDES[side] || SIDES.left, act = new Set(Object.values(ix));
+    const u = Math.min(W / 1280, H / 720), ix = SIDES[side] || SIDES.left, act = new Set(Object.values(ix));
     const px = p => ({ x: (mirror ? 1 - p.x : p.x) * W, y: p.y * H });
     const label = (p, s, col, dx = 12, dy = -10) => { ctx.font = `700 ${20 * u}px system-ui,Arial,sans-serif`; ctx.textAlign = 'left'; ctx.lineWidth = 4 * u; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText(s, p.x + dx * u, p.y + dy * u); ctx.fillStyle = col; ctx.fillText(s, p.x + dx * u, p.y + dy * u); };
     ctx.save();
@@ -474,9 +597,9 @@ export async function startSession(opts) {
       if (v.headY != null) { ctx.strokeStyle = '#ff4fd8'; ctx.beginPath(); ctx.moveTo(0, v.headY); ctx.lineTo(W, v.headY); ctx.stroke(); }
       ctx.strokeStyle = '#ffd54f'; ctx.beginPath(); ctx.moveTo(0, v.shY); ctx.lineTo(W, v.shY); ctx.stroke();
       ctx.setLineDash([]);
-      label({ x: 8 * u, y: v.floorY }, 'suelo', '#fff', 0, -6);
-      if (v.headY != null) label({ x: 8 * u, y: v.headY }, `cabeza ${v.head.toFixed(2)}`, '#ff4fd8', 0, -6);
-      label({ x: 8 * u, y: v.shY }, `hombros ${v.sh.toFixed(2)}`, '#ffd54f', 0, -6);
+      label({ x: 8 * u, y: v.floorY }, v.floorName, '#fff', 0, -6);
+      if (v.headY != null && v.head != null) label({ x: 8 * u, y: v.headY }, `${v.headName} ${v.head.toFixed(2)}`, '#ff4fd8', 0, -6);
+      if (v.sh != null) label({ x: 8 * u, y: v.shY }, `${v.shName} ${v.sh.toFixed(2)}`, '#ffd54f', 0, -6);
     }
     BONES.forEach(([a, b]) => {
       const A = lastLms[a], B = lastLms[b]; if (!A || !B) return;
@@ -492,15 +615,15 @@ export async function startSession(opts) {
     });
     ctx.globalAlpha = 1;
     // arco y número del ángulo de la articulación principal (codo o rodilla) y del cuerpo
-    const jn = cfg.kind === 'squat' ? ['hip', 'kn', 'an'] : ['sh', 'el', 'wr'];
+    const jn = cfg.kind === 'squat' || cfg.kind === 'bulgarian' ? ['hip', 'kn', 'an'] : cfg.kind === 'crunch' ? ['sh', 'hip', 'kn'] : cfg.kind === 'raise' ? ['hip', 'sh', 'wr'] : ['sh', 'el', 'wr'];
     if (sm.ang != null) {
       const A = px(lastLms[ix[jn[0]]]), B = px(lastLms[ix[jn[1]]]), C = px(lastLms[ix[jn[2]]]);
       const a1 = Math.atan2(A.y - B.y, A.x - B.x), a2 = Math.atan2(C.y - B.y, C.x - B.x);
       let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
       ctx.strokeStyle = '#ff9800'; ctx.lineWidth = 4 * u; ctx.beginPath(); ctx.arc(B.x, B.y, 36 * u, a1, a1 + d, d < 0); ctx.stroke();
-      label(B, `${Math.round(sm.ang)}°`, '#ffb74d');
+      label(B, cfg.angLabel ? cfg.angLabel(sm.ang) : `${Math.round(sm.ang)}°`, '#ffb74d');
     }
-    if (sm.align != null) label(px(lastLms[ix.hip]), `${Math.round(sm.align)}°${cfg.kind === 'squat' ? ' torso' : ''}`, '#80d8ff');
+    if (sm.align != null) label(px(lastLms[ix[cfg.kind === 'raise' ? 'el' : 'hip']]), `${Math.round(sm.align)}°${/squat|bulgarian/.test(cfg.kind) ? ' torso' : cfg.kind === 'raise' ? ' codo' : ''}`, '#80d8ff');
     // barra vertical de la señal principal con las marcas de los umbrales reales (adaptados a la persona)
     const bx = W - 46 * u, by = 100 * u, bh = H - 400 * u, lo = 50, hi = 180, yOf = a => by + bh - ((clamp(a, lo, hi) - lo) / (hi - lo)) * bh;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; rr(ctx, bx, by, 18 * u, bh, 6 * u); ctx.fill();
@@ -525,11 +648,11 @@ export async function startSession(opts) {
     const lines = [`Estado: ${machine.phase}${machine.settle ? ' (cierre)' : ''}${machine.noPlank ? ' · mala postura' : ''}`,
       `Lado: ${side === 'left' ? 'izq.' : 'der.'} · visib. ${lastMeas ? lastMeas.vis.toFixed(2) : '–'} / ${lastMeas ? lastMeas.visOther.toFixed(2) : '–'}`,
       `Umbrales: arriba ${machine.upEff != null ? Math.round(machine.upEff) : '–'}° · abajo ${machine.downEff != null ? Math.round(machine.downEff) : '–'}°`,
-      `Vertical: ${v ? v.vh.toFixed(2) : '–'} torsos · cara ${v ? v.faceN : 0}/11 pts`,
+      `Vertical: ${v ? v.vh.toFixed(2) : '–'} × ${cfg.kind === 'pushup-front' ? 'ancho de manos' : 'torso'} · cara ${v ? v.faceN : 0}/11 pts`,
       `Señal: ${sm.main != null ? sm.main.toFixed(0) : '–'}° (áng. ${sm.ang != null ? sm.ang.toFixed(0) : '–'}° · vert. ${vAng != null ? vAng.toFixed(0) : '–'}°)`,
       `${fps ? fps.toFixed(0) : '–'} FPS · ${det.delegate}${detEvery > 1 ? ' · cada 2 frames' : ''}`];
     ctx.font = `600 ${15 * u}px ui-monospace,Consolas,monospace`; ctx.textAlign = 'left';
-    const bw = 400 * u, bh2 = (lines.length * 21 + 12) * u, y0 = H - bh2 - 12 * u;
+    const bw = 420 * u, bh2 = (lines.length * 21 + 12) * u, y0 = H - bh2 - 12 * u;
     ctx.fillStyle = 'rgba(0,0,0,.6)'; rr(ctx, 12 * u, y0, bw, bh2, 8 * u); ctx.fill();
     ctx.fillStyle = '#9cff9c'; lines.forEach((s, i) => ctx.fillText(s, 22 * u, y0 + (22 + i * 21) * u));
     ctx.restore();
@@ -597,4 +720,4 @@ export async function startSession(opts) {
     }
   };
 }
-export const startPushupSession = opts => startSession({ ...opts, exercise: 'flexiones' });
+export const startPushupSession = opts => startSession({ ...opts, exercise: 'flexiones', view: opts.view || 'lateral' });
