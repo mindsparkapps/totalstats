@@ -289,6 +289,9 @@ dialog.fs .hint{color:#a9b8ae}
 .ex-prep{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:16px;align-items:start}
 @media (max-width:720px){.ex-prep{grid-template-columns:minmax(0,1fr)}.ex-guide{display:none}}
 .ex-guide-svg{width:100%;height:auto;color:#e4ece6}
+/* Versión junto al nombre de la app */
+.brand h1 .ver{font-family:var(--f-body);font-size:.62rem;font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--muted);vertical-align:middle;margin-left:4px;white-space:nowrap}
+@media (max-width:600px){.brand h1 .ver{display:block;margin-left:0;font-size:.58rem}}
 .ex-form{display:grid;gap:10px}
 .ex-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ex-light{padding:8px 12px;border-radius:8px;font-weight:700;font-size:.9rem;background:#1d2822}

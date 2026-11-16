@@ -1,31 +1,73 @@
-// ===== Flexiones de brazo: detección de pose (MediaPipe), conteo, calificación y grabación =====
+// ===== Ejercicios con cámara (flexiones y sentadillas): pose (MediaPipe), conteo, calificación y grabación =====
 // Módulo ES. rutina.js lo carga con import() solo cuando se abre el ejercicio.
 // La lógica pura (ángulos, máquina de estados, nota) no toca el DOM y se prueba con Node.
+//
+// El conteo usa dos canales a la vez:
+//   1) el ÁNGULO de la articulación principal (codo en flexiones, rodilla en sentadillas), fusionando los dos lados;
+//   2) el MOVIMIENTO VERTICAL del cuerpo: cabeza (nariz, ojos, orejas, boca), hombros y cadera respecto del suelo.
+// Se fusionan en una sola señal («main»). Si una falla (brazo tapado), cuenta el otro canal.
 
 // ---------- Configuración: todos los umbrales juntos para afinarlos tras probar con personas ----------
 export const PUSHUP_CFG = {
-  // máquina de estados (grados del codo)
-  downStart: 140,      // por debajo de esto empieza a contarse la repetición
-  upDone: 155,         // por encima de esto, la repetición se cierra
-  riseDelta: 10,       // histéresis: cuánto debe subir/bajar el codo para cambiar de fase
-  settleDrop: 4,       // al cerrar se espera al pico del codo; se termina cuando baja esto desde el máximo
+  id: 'flexiones', unit: 'flexión', units: 'flexiones',
+  kind: 'pushup',                // cómo se mide la pose
+  keys: ['sh', 'el', 'wr', 'hip', 'an'], // puntos que cuentan para la visibilidad de un lado
+  floor: [15, 16, 27, 28, 31, 32],       // puntos que apoyan en el suelo (muñecas y pies)
+  // máquina de estados (grados de la señal principal)
+  upDone: 155,         // tope: por encima de esto la repetición se cierra
+  upDoneMin: 140,      // el umbral de arriba se adapta al tope real de la persona, nunca por debajo de esto
+  downGap: 15,         // la bajada empieza upDone - downGap grados por debajo
+  riseDelta: 10,       // histéresis: cuánto debe subir/bajar para cambiar de fase
+  settleDrop: 4,       // al cerrar se espera al pico; se termina cuando baja esto desde el máximo
   settleSec: 0.5,      // ...o tras este tiempo
   minRepSec: 0.4,      // un ciclo más corto se descarta
   maxRepSec: 15,       // un ciclo más largo se descarta
-  plankMin: 140,       // hombro-cadera-tobillo mínimo para considerar plancha
-  minVis: 0.5,         // visibilidad mínima de los puntos usados
-  sideSwitchVis: 0.15, // ventaja de visibilidad para cambiar de lado
-  smoothAlpha: 0.4,    // media móvil exponencial
-  // calificación: [valor con 0 %, valor con 100 %]
+  plankMin: 135,       // hombro-cadera-tobillo mínimo para considerar plancha (null = no se exige postura)
+  alignWorst: 'min',   // en la alineación, lo peor es el valor más bajo
+  minVis: 0.4,         // visibilidad mínima de los puntos usados
+  sideSwitchVis: 0.15, // ventaja de visibilidad para cambiar de lado principal
+  smoothAlpha: 0.5,    // media móvil exponencial
+  // canal vertical
+  vWeight: 0.35,       // peso del canal vertical en la señal principal
+  vMinRange: 0.08,     // recorrido vertical mínimo (en largos de torso) para fiarse de él
+  vWindow: 6,          // segundos que se recuerdan para normalizar el recorrido
+  vTop: 170, vBottom: 70, // ángulos equivalentes de arriba y abajo del canal vertical
+  // calificación: zero = valor con 0 %, full = valor con 100 %
   prof: { w: 50, zero: 120, full: 75 },    // ángulo mínimo del codo
   ext: { w: 20, zero: 145, full: 165 },    // ángulo máximo del codo
   alin: { w: 20, zero: 145, full: 170 },   // peor ángulo hombro-cadera-tobillo
   ctrl: { w: 10, tooFast: 0.5, okMin: 1.2, okMax: 3, tooSlow: 6 }, // duración (s)
+  tips: { prof: 'Baja más el pecho', ext: 'Estira los brazos arriba', alin: 'Mantén la cadera alineada', fast: 'Más despacio', slow: 'Algo más fluido', ok: '¡Muy bien!' },
+  warnPosture: 'Ponte en posición de plancha',
   // etiquetas
   excelente: 85, buena: 70, regular: 50,
   // rendimiento
   lowFps: 12
 };
+
+export const SQUAT_CFG = {
+  id: 'sentadillas', unit: 'sentadilla', units: 'sentadillas',
+  kind: 'squat',
+  keys: ['sh', 'hip', 'kn', 'an'],
+  floor: [27, 28, 29, 30, 31, 32],         // tobillos y pies
+  upDone: 165, upDoneMin: 150, downGap: 18,
+  riseDelta: 10, settleDrop: 4, settleSec: 0.5,
+  minRepSec: 0.8, maxRepSec: 20,
+  plankMin: null,
+  alignWorst: 'max',   // en el torso, lo peor es la inclinación más alta
+  minVis: 0.4, sideSwitchVis: 0.15, smoothAlpha: 0.5,
+  vWeight: 0.35, vMinRange: 0.1, vWindow: 6, vTop: 170, vBottom: 90,
+  prof: { w: 50, zero: 135, full: 95 },    // ángulo mínimo de la rodilla (90° = muslos paralelos)
+  ext: { w: 15, zero: 150, full: 168 },    // ángulo máximo de la rodilla al pararse
+  alin: { w: 25, zero: 70, full: 35 },     // inclinación del torso respecto de la vertical (menos es mejor)
+  ctrl: { w: 10, tooFast: 0.8, okMin: 1.5, okMax: 4, tooSlow: 8 },
+  tips: { prof: 'Baja más la cadera', ext: 'Termina de pararte arriba', alin: 'Mantén el pecho erguido', fast: 'Más despacio', slow: 'Algo más fluido', ok: '¡Muy bien!' },
+  warnPosture: '',
+  excelente: 85, buena: 70, regular: 50,
+  lowFps: 12
+};
+
+export const EXERCISE_CFG = { flexiones: PUSHUP_CFG, sentadillas: SQUAT_CFG };
 
 export const NOTE_COLORS = { Excelente: '#2ecc71', Buena: '#8bd450', Regular: '#f0a92e', Incompleta: '#e74c4c' };
 
@@ -43,35 +85,73 @@ export function angle(a, b, c) {
 }
 export const ema = (prev, v, alpha = PUSHUP_CFG.smoothAlpha) => (prev == null ? v : prev + alpha * (v - prev));
 
-// Índices de MediaPipe Pose: hombro, codo, muñeca, cadera, rodilla, tobillo
+// Índices de MediaPipe Pose (33 puntos): 0 nariz, 1-6 ojos, 7-8 orejas, 9-10 boca, 11-12 hombros, 13-14 codos,
+// 15-16 muñecas, 17-22 manos, 23-24 caderas, 25-26 rodillas, 27-28 tobillos, 29-32 talones y puntas de los pies
 export const SIDES = {
   left: { sh: 11, el: 13, wr: 15, hip: 23, kn: 25, an: 27 },
   right: { sh: 12, el: 14, wr: 16, hip: 24, kn: 26, an: 28 }
 };
-const KEYS = ['sh', 'el', 'wr', 'hip', 'an'];
-export function sideVisibility(lms, side) {
+export const FACE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const KEYS = PUSHUP_CFG.keys;
+const visOf = (lms, i) => (lms[i] && lms[i].visibility) ?? 0;
+export function sideVisibility(lms, side, keys = KEYS) {
   const ix = SIDES[side];
-  return KEYS.reduce((a, k) => a + ((lms[ix[k]] && lms[ix[k]].visibility) ?? 0), 0) / KEYS.length;
+  return keys.reduce((a, k) => a + visOf(lms, ix[k]), 0) / keys.length;
 }
 // Elige el lado del cuerpo con mejor visibilidad; con histéresis para no saltar de lado
 export function pickSide(lms, prev = null, cfg = PUSHUP_CFG) {
-  const l = sideVisibility(lms, 'left'), r = sideVisibility(lms, 'right');
+  const l = sideVisibility(lms, 'left', cfg.keys), r = sideVisibility(lms, 'right', cfg.keys);
   if (!prev) return l >= r ? 'left' : 'right';
   const cur = prev === 'left' ? l : r, other = prev === 'left' ? r : l;
   return other > cur + cfg.sideSwitchVis ? (prev === 'left' ? 'right' : 'left') : prev;
 }
-// Mide una pose: landmarks normalizados (x,y en 0..1) y el tamaño de la imagen (para ángulos reales)
-export function measurePose(lms, side, w, h, mirror = false) {
-  const ix = SIDES[side];
-  const P = k => { const p = lms[ix[k]]; return { x: (mirror ? 1 - p.x : p.x) * w, y: p.y * h }; };
-  const sh = P('sh'), el = P('el'), wr = P('wr'), hip = P('hip'), an = P('an');
-  const fore = Math.hypot(wr.x - el.x, wr.y - el.y), upper = Math.hypot(el.x - sh.x, el.y - sh.y);
-  return {
-    elbow: angle(sh, el, wr), align: angle(sh, hip, an),
-    // altura del hombro sobre la muñeca, en largos de antebrazo (referencia para el modo desarrollador)
-    depth: fore > 1 ? (wr.y - sh.y) / fore : null, arm: fore + upper,
-    vis: sideVisibility(lms, side)
+
+// Punto medio (en píxeles) de los puntos visibles de una lista; null si no hay ninguno
+function avgPts(lms, idxs, w, h, mirror, minV = 0.3) {
+  let sx = 0, sy = 0, n = 0;
+  idxs.forEach(i => { const p = lms[i]; if (p && visOf(lms, i) >= minV) { sx += (mirror ? 1 - p.x : p.x) * w; sy += p.y * h; n++; } });
+  return n ? { x: sx / n, y: sy / n, n } : null;
+}
+
+// Canal vertical: altura de la cabeza (nariz, ojos, orejas, boca), hombros y cadera sobre el suelo, en largos de torso.
+export function verticalPose(lms, w, h, mirror = false, cfg = PUSHUP_CFG) {
+  const head = avgPts(lms, FACE, w, h, mirror), sh = avgPts(lms, [11, 12], w, h, mirror), hip = avgPts(lms, [23, 24], w, h, mirror);
+  const floor = avgPts(lms, cfg.floor, w, h, mirror);
+  if (!sh || !hip || !floor) return null;
+  const torso = Math.hypot(sh.x - hip.x, sh.y - hip.y);
+  if (torso < 20) return null;
+  const H = p => (p ? (floor.y - p.y) / torso : null);
+  const parts = [[H(head), 0.4], [H(sh), 0.35], [H(hip), 0.25]].filter(x => x[0] != null);
+  const vh = parts.reduce((a, x) => a + x[0] * x[1], 0) / parts.reduce((a, x) => a + x[1], 0);
+  return { vh, head: H(head), sh: H(sh), hip: H(hip), floorY: floor.y, headY: head ? head.y : null, shY: sh.y, hipY: hip.y, torso, faceN: head ? head.n : 0 };
+}
+
+// Mide una pose: landmarks normalizados (x,y en 0..1) y el tamaño de la imagen (para ángulos reales).
+// Fusiona los dos lados del cuerpo (ponderados por visibilidad). Devuelve { ang, align, depth, vis, vert }.
+export function measurePose(lms, side, w, h, mirror = false, cfg = PUSHUP_CFG) {
+  const one = sd => {
+    const ix = SIDES[sd];
+    const P = k => { const p = lms[ix[k]]; return { x: (mirror ? 1 - p.x : p.x) * w, y: p.y * h }; };
+    const vis = sideVisibility(lms, sd, cfg.keys);
+    if (cfg.kind === 'squat') {
+      const sh = P('sh'), hip = P('hip'), kn = P('kn'), an = P('an');
+      // inclinación del torso respecto de la vertical (0 = erguido)
+      const lean = (Math.atan2(Math.abs(sh.x - hip.x), hip.y - sh.y) * 180) / Math.PI;
+      return { ang: angle(hip, kn, an), align: lean, depth: null, vis };
+    }
+    const sh = P('sh'), el = P('el'), wr = P('wr'), hip = P('hip'), an = P('an');
+    const fore = Math.hypot(wr.x - el.x, wr.y - el.y);
+    return { ang: angle(sh, el, wr), align: angle(sh, hip, an), depth: fore > 1 ? (wr.y - sh.y) / fore : null, vis };
   };
+  const main = one(side), other = one(side === 'left' ? 'right' : 'left');
+  let ang = main.ang, align = main.align;
+  // el otro lado ayuda si también se ve: media ponderada por visibilidad
+  if (other.vis >= cfg.minVis && other.ang != null && main.ang != null) {
+    const a = main.vis, b = other.vis;
+    ang = (main.ang * a + other.ang * b) / (a + b);
+    if (other.align != null && main.align != null) align = (main.align * a + other.align * b) / (a + b);
+  }
+  return { ang, align, depth: main.depth, vis: main.vis, visOther: other.vis, vert: verticalPose(lms, w, h, mirror, cfg) };
 }
 
 export function labelFor(nota, cfg = PUSHUP_CFG) {
@@ -83,7 +163,7 @@ export function scoreRep(m, cfg = PUSHUP_CFG) {
   const prof = lin(m.angMin, cfg.prof.zero, cfg.prof.full);
   const ext = lin(m.angMax, cfg.ext.zero, cfg.ext.full);
   const alin = lin(m.alignMin, cfg.alin.zero, cfg.alin.full);
-  const c = cfg.ctrl;
+  const c = cfg.ctrl, T = cfg.tips || PUSHUP_CFG.tips;
   const ctrl = m.dur <= c.tooFast ? 0
     : m.dur < c.okMin ? lin(m.dur, c.tooFast, c.okMin)
     : m.dur <= c.okMax ? 100
@@ -92,12 +172,12 @@ export function scoreRep(m, cfg = PUSHUP_CFG) {
   const label = labelFor(nota, cfg);
   // consejo según el criterio que más puntos hace perder
   const loss = [
-    ['prof', cfg.prof.w * (100 - prof), 'Baja más el pecho'],
-    ['ext', cfg.ext.w * (100 - ext), 'Estira los brazos arriba'],
-    ['alin', cfg.alin.w * (100 - alin), 'Mantén la cadera alineada'],
-    ['ctrl', cfg.ctrl.w * (100 - ctrl), m.dur < c.okMin ? 'Más despacio' : 'Algo más fluido']
+    ['prof', cfg.prof.w * (100 - prof), T.prof],
+    ['ext', cfg.ext.w * (100 - ext), T.ext],
+    ['alin', cfg.alin.w * (100 - alin), T.alin],
+    ['ctrl', cfg.ctrl.w * (100 - ctrl), m.dur < c.okMin ? T.fast : T.slow]
   ].sort((a, b) => b[1] - a[1])[0];
-  const tip = loss[1] <= 300 ? '¡Muy bien!' : loss[2]; // 300 = unos 3 puntos de nota perdidos
+  const tip = loss[1] <= 300 ? T.ok : loss[2]; // 300 = unos 3 puntos de nota perdidos
   return { nota, prof: Math.round(prof), ext: Math.round(ext), alin: Math.round(alin), ctrl: Math.round(ctrl), label, tip, completa: nota >= cfg.regular };
 }
 
@@ -109,10 +189,15 @@ export function summarize(reps) {
 }
 
 // ---------- Máquina de estados ----------
-// ARRIBA (codo > upDone) -> BAJANDO (< downStart) -> SUBIENDO (sube riseDelta desde el mínimo) -> ARRIBA (> upDone) => +1 rep
-// Al cerrar se espera un instante al pico del codo (para medir la extensión real) y entonces se califica.
+// ARRIBA (señal > upEff) -> BAJANDO (< downEff) -> SUBIENDO (sube riseDelta desde el mínimo) -> ARRIBA (> upEff) => +1 rep
+// El umbral de arriba se adapta al tope real de la persona (topRef): quien no estira del todo igual cuenta.
+// Al cerrar se espera un instante al pico (para medir la extensión real) y entonces se califica.
 export function createMachine() {
-  return { phase: 'ARRIBA', armed: false, rep: null, settle: false, tUp: 0, maxSinceMin: 0, noPlank: false, count: 0, discarded: 0 };
+  return { phase: 'ARRIBA', armed: false, rep: null, settle: false, tUp: 0, maxSinceMin: 0, noPlank: false, count: 0, discarded: 0, topRef: null, upEff: null, downEff: null };
+}
+function thresholds(st, cfg) {
+  const up = st.topRef == null ? cfg.upDoneMin : clamp(st.topRef - 8, cfg.upDoneMin, cfg.upDone);
+  st.upEff = up; st.downEff = up - cfg.downGap;
 }
 
 function finishRep(st, cfg) {
@@ -120,48 +205,57 @@ function finishRep(st, cfg) {
   const dur = st.tUp - r.t0;
   if (dur < cfg.minRepSec) { st.discarded++; return { type: 'discard', reason: 'rapida', dur }; }
   st.count++;
+  st.topRef = st.topRef == null ? r.mMax : 0.6 * st.topRef + 0.4 * r.mMax;
   const sc = scoreRep({ angMin: r.angMin, angMax: r.angMax, alignMin: r.alignMin, dur }, cfg);
-  return { type: 'rep', rep: { n: st.count, ...sc, dur: Math.round(dur * 100) / 100, angMin: Math.round(r.angMin), t: Math.round(r.t0 * 100) / 100 } };
+  const caida = r.vMax > r.vMin ? Math.round((r.vMax - r.vMin) * 100) : null; // recorrido vertical, % del torso
+  return { type: 'rep', rep: { n: st.count, ...sc, dur: Math.round(dur * 100) / 100, angMin: Math.round(r.angMin), caida, t: Math.round(r.t0 * 100) / 100 } };
 }
 function dropRep(st, reason) {
   st.rep = null; st.settle = false; st.phase = 'ARRIBA'; st.armed = false; st.discarded++;
   return { type: 'discard', reason };
 }
 
-// s = { t (s), elbow, align, visible }. Devuelve un evento ({type:'rep'|'discard'}) o null.
+// s = { t (s), elbow (ángulo para calificar), main (señal para contar; si falta se usa elbow), align, v (altura), visible }.
+// Devuelve un evento ({type:'rep'|'discard'}) o null.
 export function stepMachine(st, s, cfg = PUSHUP_CFG) {
-  const { t, elbow, align } = s;
-  if (!s.visible || elbow == null) {
+  const { t, align } = s;
+  const m = s.main != null ? s.main : s.elbow;
+  const e = s.elbow != null ? s.elbow : m;
+  if (!s.visible || m == null) {
     if (!st.rep) return null;
     return st.settle ? finishRep(st, cfg) : dropRep(st, 'perdido');
   }
+  thresholds(st, cfg);
   let ev = null;
-  if (align != null) st.noPlank = align < cfg.plankMin;
+  if (align != null) st.noPlank = cfg.plankMin != null && align < cfg.plankMin;
 
   if (st.rep) {
     const r = st.rep;
-    if (align != null && align < r.alignMin) r.alignMin = align;
+    if (align != null) r.alignMin = cfg.alignWorst === 'max' ? Math.max(r.alignMin, align) : Math.min(r.alignMin, align);
+    if (s.v != null) { if (s.v < r.vMin) r.vMin = s.v; if (s.v > r.vMax) r.vMax = s.v; }
+    if (e < r.angMin) r.angMin = e;
     if (st.settle) {
-      if (elbow > r.angMax) r.angMax = elbow;
-      if (elbow < cfg.downStart || elbow < r.angMax - cfg.settleDrop || t - st.tUp >= cfg.settleSec) {
+      if (m > r.mMax) r.mMax = m;
+      if (e > r.angMax) r.angMax = e;
+      if (m < st.downEff || m < r.mMax - cfg.settleDrop || t - st.tUp >= cfg.settleSec) {
         ev = finishRep(st, cfg);   // st.rep = null: sigue por si ya empezó otra bajada
       }
     } else {
       if (t - r.t0 > cfg.maxRepSec) return dropRep(st, 'larga');
       if (st.phase === 'BAJANDO') {
-        if (elbow < r.angMin) r.angMin = elbow;
-        else if (elbow > r.angMin + cfg.riseDelta) { st.phase = 'SUBIENDO'; st.maxSinceMin = elbow; }
+        if (m < r.mMin) r.mMin = m;
+        else if (m > r.mMin + cfg.riseDelta) { st.phase = 'SUBIENDO'; st.maxSinceMin = m; }
       } else if (st.phase === 'SUBIENDO') {
-        if (elbow > st.maxSinceMin) st.maxSinceMin = elbow;
-        if (elbow < st.maxSinceMin - cfg.riseDelta) { st.phase = 'BAJANDO'; if (elbow < r.angMin) r.angMin = elbow; } // rebote
+        if (m > st.maxSinceMin) st.maxSinceMin = m;
+        if (m < st.maxSinceMin - cfg.riseDelta) { st.phase = 'BAJANDO'; if (m < r.mMin) r.mMin = m; } // rebote
       }
-      if (st.phase === 'SUBIENDO' && elbow >= cfg.upDone) { st.settle = true; st.tUp = t; r.angMax = elbow; }
+      if (st.phase === 'SUBIENDO' && m >= st.upEff) { st.settle = true; st.tUp = t; r.mMax = m; r.angMax = e; }
     }
   }
   if (!st.rep) {
-    if (elbow >= cfg.upDone) st.armed = true;
-    if (st.armed && elbow < cfg.downStart && !st.noPlank) {
-      st.rep = { t0: t, angMin: elbow, angMax: -Infinity, alignMin: align ?? 180 };
+    if (m >= st.upEff) st.armed = true;
+    if (st.armed && m < st.downEff && !st.noPlank) {
+      st.rep = { t0: t, mMin: m, mMax: -Infinity, angMin: e, angMax: -Infinity, alignMin: align ?? (cfg.alignWorst === 'max' ? 0 : 180), vMin: s.v ?? Infinity, vMax: s.v ?? -Infinity };
       st.phase = 'BAJANDO'; st.settle = false;
     }
   }
@@ -174,17 +268,33 @@ export function flushMachine(st, t, cfg = PUSHUP_CFG) {
   return null;
 }
 
+// Canal vertical -> ángulo equivalente. buf = [{t, v}] con las alturas recientes; devuelve null si aún no hay recorrido fiable.
+export function verticalAngle(buf, v, cfg = PUSHUP_CFG) {
+  if (v == null || buf.length < 6) return null;
+  let lo = Infinity, hi = -Infinity;
+  for (const p of buf) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; }
+  const range = hi - lo;
+  if (range < cfg.vMinRange) return null;
+  return cfg.vBottom + (cfg.vTop - cfg.vBottom) * clamp((v - lo) / range, 0, 1);
+}
+// Fusiona el ángulo (si se ve) y el canal vertical (si ya hay recorrido). Devuelve la señal principal o null.
+export function fuseMain(ang, vAng, cfg = PUSHUP_CFG) {
+  if (ang != null && vAng != null) return (1 - cfg.vWeight) * ang + cfg.vWeight * vAng;
+  return ang != null ? ang : vAng;
+}
+
 // ---------- Carga de MediaPipe (solo la primera vez que se usa) ----------
 const MP_VER = '0.10.14';
 const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+// Modelo «full»: más preciso que «lite» (unos 9 MB, se guarda en caché para usarlo sin conexión)
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
 let mpPromise = null;
 
 async function createLandmarker(mod, fileset, delegate) {
   return mod.PoseLandmarker.createFromOptions(fileset, {
     baseOptions: { modelAssetPath: MODEL_URL, delegate },
     runningMode: 'VIDEO', numPoses: 1,
-    minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5
+    minPoseDetectionConfidence: 0.4, minPosePresenceConfidence: 0.4, minTrackingConfidence: 0.4
   });
 }
 // Devuelve { landmarker, delegate, reloadCpu() }
@@ -211,20 +321,23 @@ export function pickMime() {
 }
 
 // ---------- Dibujo ----------
-const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32], [0, 11], [0, 12]];
+// Las 35 conexiones del esqueleto de MediaPipe: cara, brazos, manos, tronco, piernas y pies
+const BONES = [[0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], [9, 10], [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19], [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20], [11, 23], [12, 24], [23, 24], [23, 25], [24, 26], [25, 27], [26, 28], [27, 29], [28, 30], [29, 31], [30, 32], [27, 31], [28, 32]];
+const GROUP = i => (i <= 10 ? '#ff4fd8' : i <= 12 ? '#ffd54f' : i <= 16 ? '#4fc3f7' : i <= 22 ? '#9575cd' : i <= 24 ? '#ffb74d' : i <= 28 ? '#81c784' : '#a1887f');
+const FACE_NAMES = { 0: 'nariz', 2: 'ojo', 5: 'ojo', 7: 'oreja', 8: 'oreja', 9: 'boca' };
 function rr(ctx, x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 // ---------- Sesión en vivo ----------
-// startPushupSession({ video, canvas, onRep, onState, devTracking, mirror, fileMode })
+// startSession({ exercise: 'flexiones'|'sentadillas', video, canvas, onRep, onState, devTracking, mirror })
 // Dibuja la cámara (o el video) en el canvas con el HUD. begin() empieza a contar y a grabar.
 // stop() devuelve Promise<{ reps, blob, mime, duracion, total, completas, notaMedia }>.
-export async function startPushupSession(opts) {
+export async function startSession(opts) {
   const { video, canvas, onRep = () => {}, onState = () => {}, mirror = false } = opts;
   let dev = typeof opts.devTracking === 'function' ? opts.devTracking : () => !!opts.devTracking;
-  const cfg = PUSHUP_CFG;
+  const cfg = EXERCISE_CFG[opts.exercise] || PUSHUP_CFG;
   const det = await loadDetector();
   const ctx = canvas.getContext('2d');
   const useVideoClock = !video.srcObject;           // con un archivo, el tiempo es el del video
@@ -232,8 +345,9 @@ export async function startPushupSession(opts) {
 
   let running = true, counting = false, paused = false;
   let machine = createMachine();
-  let reps = [], side = null, lastLms = null, lastMeas = null, sm = { elbow: null, align: null };
-  let tBegin = 0, pausedAt = 0, pausedTotal = 0, tStartClock = 0;
+  let reps = [], side = null, lastLms = null, lastMeas = null, sm = { ang: null, main: null, align: null, v: null };
+  let vbuf = [], vAng = null, trace = [];
+  let pausedAt = 0, pausedTotal = 0, tStartClock = 0;
   let lastRep = null, lastRepAt = 0, hud = { serie: '' };
   let fps = 0, lastDetAt = 0, frameN = 0, detEvery = 1, lowCount = 0, tsLast = 0, badFrames = 0;
   let recorder = null, chunks = [], mime = '', stopPromise = null, wakeLock = null;
@@ -252,6 +366,8 @@ export async function startPushupSession(opts) {
   }
   const elapsed = () => (counting ? Math.max(0, (paused ? pausedAt : performance.now() / 1000) - tStartClock - pausedTotal) : 0);
 
+  function resetSignals() { sm = { ang: null, main: null, align: null, v: null }; vAng = null; }
+
   function detect() {
     const ts = Math.max(performance.now(), tsLast + 1); tsLast = ts;
     let res;
@@ -269,20 +385,31 @@ export async function startPushupSession(opts) {
     let visible = false, ev = null;
     if (lms) {
       side = pickSide(lms, side, cfg);
-      const m = measurePose(lms, side, canvas.width, canvas.height, mirror);
+      const m = measurePose(lms, side, canvas.width, canvas.height, mirror, cfg);
       lastMeas = m;
-      visible = m.vis >= cfg.minVis && m.elbow != null && m.align != null;
-      if (visible) { sm.elbow = ema(sm.elbow, m.elbow); sm.align = ema(sm.align, m.align); }
-      else { sm.elbow = sm.align = null; }
-    } else { lastMeas = null; sm.elbow = sm.align = null; }
-    if (counting && !paused) ev = stepMachine(machine, { t: nowSec(), elbow: sm.elbow, align: sm.align, visible }, cfg);
+      const angOk = m.vis >= cfg.minVis && m.ang != null && m.align != null;
+      // canal vertical: altura del cuerpo normalizada con el recorrido de los últimos segundos
+      const vh = m.vert ? m.vert.vh : null, tn = t1 / 1000;
+      if (vh != null) { vbuf.push({ t: tn, v: vh }); while (vbuf.length && tn - vbuf[0].t > cfg.vWindow) vbuf.shift(); }
+      vAng = verticalAngle(vbuf, vh, cfg);
+      const main = fuseMain(angOk ? m.ang : null, vAng, cfg);
+      visible = main != null && (angOk || m.vis >= 0.25);
+      if (visible) {
+        sm.ang = angOk ? ema(sm.ang, m.ang, cfg.smoothAlpha) : null;
+        sm.main = ema(sm.main, main, cfg.smoothAlpha);
+        sm.align = m.align != null ? ema(sm.align, m.align, cfg.smoothAlpha) : sm.align;
+        sm.v = vh != null ? ema(sm.v, vh, cfg.smoothAlpha) : sm.v;
+      } else resetSignals();
+    } else { lastMeas = null; resetSignals(); }
+    if (counting && !paused) ev = stepMachine(machine, { t: nowSec(), elbow: sm.ang, main: sm.main, align: sm.align, v: sm.v, visible }, cfg);
+    if (visible || counting) { trace.push({ t: t1 / 1000, main: sm.main, v: vAng }); while (trace.length && t1 / 1000 - trace[0].t > 6) trace.shift(); }
     if (ev && ev.type === 'rep') {
       const rep = { ...ev.rep, t: Math.round(elapsed() * 100) / 100 };
       reps.push(rep); lastRep = rep; lastRepAt = performance.now(); onRep(rep, summarize(reps));
     }
     // si el rendimiento es bajo, se detecta cada 2 frames (la grabación sigue a todo el ritmo)
     if (fps && fps < cfg.lowFps) { if (++lowCount > 45) detEvery = 2; } else lowCount = 0;
-    onState({ phase: machine.phase, elbow: sm.elbow, align: sm.align, side, vis: lastMeas ? lastMeas.vis : 0, visible, noPlank: machine.noPlank, fps, delegate: det.delegate, count: machine.count, counting, paused, depth: lastMeas ? lastMeas.depth : null });
+    onState({ phase: machine.phase, ang: sm.ang, main: sm.main, align: sm.align, side, vis: lastMeas ? lastMeas.vis : 0, visible, noPlank: machine.noPlank, fps, delegate: det.delegate, count: machine.count, counting, paused, depth: lastMeas ? lastMeas.depth : null });
   }
 
   function drawHud(W, H) {
@@ -291,11 +418,11 @@ export async function startPushupSession(opts) {
     ctx.textBaseline = 'alphabetic';
     // contador
     const inc = reps.filter(r => !r.completa).length;
-    rr(ctx, 16 * u, 16 * u, 190 * u, 120 * u, 14 * u); ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
+    rr(ctx, 16 * u, 16 * u, 210 * u, 120 * u, 14 * u); ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = `700 ${84 * u}px system-ui,Arial,sans-serif`; ctx.textAlign = 'left';
     ctx.fillText(String(reps.length), 32 * u, 100 * u);
     ctx.font = `600 ${17 * u}px system-ui,Arial,sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.fillText(inc ? `flexiones · ${inc} incompl.` : 'flexiones', 32 * u, 124 * u);
+    ctx.fillText(inc ? `${cfg.units} · ${inc} incompl.` : cfg.units, 32 * u, 124 * u);
     // tiempo y serie
     ctx.textAlign = 'right'; ctx.font = `700 ${34 * u}px system-ui,Arial,sans-serif`;
     const txt = counting ? fmtTime(elapsed()) : '';
@@ -322,7 +449,7 @@ export async function startPushupSession(opts) {
     let warn = '';
     if (paused) warn = 'PAUSA';
     else if (counting && !lastMeas) warn = 'No te veo: aleja el celular';
-    else if (counting && machine.noPlank && machine.phase === 'ARRIBA') warn = 'Ponte en posición de plancha';
+    else if (counting && cfg.warnPosture && machine.noPlank && machine.phase === 'ARRIBA') warn = cfg.warnPosture;
     if (warn) {
       ctx.textAlign = 'center'; ctx.font = `700 ${30 * u}px system-ui,Arial,sans-serif`;
       const w = ctx.measureText(warn).width + 36 * u; rr(ctx, W / 2 - w / 2, 16 * u, w, 52 * u, 12 * u);
@@ -331,48 +458,80 @@ export async function startPushupSession(opts) {
     ctx.restore();
   }
 
+  // Modo desarrollador: los 33 puntos del cuerpo (cara, manos y pies incluidos), las líneas de altura y las señales
   function drawDev(W, H) {
     if (!lastLms) return;
     const u = H / 720, ix = SIDES[side] || SIDES.left, act = new Set(Object.values(ix));
     const px = p => ({ x: (mirror ? 1 - p.x : p.x) * W, y: p.y * H });
+    const label = (p, s, col, dx = 12, dy = -10) => { ctx.font = `700 ${20 * u}px system-ui,Arial,sans-serif`; ctx.textAlign = 'left'; ctx.lineWidth = 4 * u; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText(s, p.x + dx * u, p.y + dy * u); ctx.fillStyle = col; ctx.fillText(s, p.x + dx * u, p.y + dy * u); };
     ctx.save();
     ctx.lineCap = 'round';
+    // líneas de altura: suelo y cabeza (lo que sube y baja)
+    const v = lastMeas && lastMeas.vert;
+    if (v) {
+      ctx.setLineDash([10 * u, 8 * u]); ctx.lineWidth = 2 * u;
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.moveTo(0, v.floorY); ctx.lineTo(W, v.floorY); ctx.stroke();
+      if (v.headY != null) { ctx.strokeStyle = '#ff4fd8'; ctx.beginPath(); ctx.moveTo(0, v.headY); ctx.lineTo(W, v.headY); ctx.stroke(); }
+      ctx.strokeStyle = '#ffd54f'; ctx.beginPath(); ctx.moveTo(0, v.shY); ctx.lineTo(W, v.shY); ctx.stroke();
+      ctx.setLineDash([]);
+      label({ x: 8 * u, y: v.floorY }, 'suelo', '#fff', 0, -6);
+      if (v.headY != null) label({ x: 8 * u, y: v.headY }, `cabeza ${v.head.toFixed(2)}`, '#ff4fd8', 0, -6);
+      label({ x: 8 * u, y: v.shY }, `hombros ${v.sh.toFixed(2)}`, '#ffd54f', 0, -6);
+    }
     BONES.forEach(([a, b]) => {
       const A = lastLms[a], B = lastLms[b]; if (!A || !B) return;
       const on = act.has(a) && act.has(b), pa = px(A), pb = px(B);
-      ctx.strokeStyle = on ? '#00e5ff' : 'rgba(255,255,255,.35)'; ctx.lineWidth = (on ? 5 : 2) * u;
+      ctx.strokeStyle = on ? '#00e5ff' : 'rgba(255,255,255,.4)'; ctx.lineWidth = (on ? 5 : 2) * u;
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
     });
     lastLms.forEach((p, i) => {
-      const q = px(p), on = act.has(i);
-      ctx.globalAlpha = on ? 1 : 0.5; ctx.fillStyle = on ? (p.visibility >= cfg.minVis ? '#ffeb3b' : '#ff5252') : '#fff';
-      ctx.beginPath(); ctx.arc(q.x, q.y, (on ? 6 : 3) * u, 0, 7); ctx.fill();
+      const q = px(p), on = act.has(i), low = p.visibility < cfg.minVis;
+      ctx.globalAlpha = low ? 0.45 : 1; ctx.fillStyle = low ? '#ff5252' : GROUP(i);
+      ctx.beginPath(); ctx.arc(q.x, q.y, (on ? 7 : i <= 10 ? 4.5 : 3.5) * u, 0, 7); ctx.fill();
+      if (FACE_NAMES[i] && !low) { ctx.globalAlpha = 1; label(q, FACE_NAMES[i], '#ff9bec', 8, -6); }
     });
     ctx.globalAlpha = 1;
-    // arco y número del ángulo del codo; ángulo del cuerpo en la cadera
-    const label = (p, s, col) => { ctx.font = `700 ${22 * u}px system-ui,Arial,sans-serif`; ctx.textAlign = 'left'; ctx.lineWidth = 4 * u; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText(s, p.x + 12 * u, p.y - 10 * u); ctx.fillStyle = col; ctx.fillText(s, p.x + 12 * u, p.y - 10 * u); };
-    if (sm.elbow != null) {
-      const sh = px(lastLms[ix.sh]), el = px(lastLms[ix.el]), wr = px(lastLms[ix.wr]);
-      const a1 = Math.atan2(sh.y - el.y, sh.x - el.x), a2 = Math.atan2(wr.y - el.y, wr.x - el.x);
+    // arco y número del ángulo de la articulación principal (codo o rodilla) y del cuerpo
+    const jn = cfg.kind === 'squat' ? ['hip', 'kn', 'an'] : ['sh', 'el', 'wr'];
+    if (sm.ang != null) {
+      const A = px(lastLms[ix[jn[0]]]), B = px(lastLms[ix[jn[1]]]), C = px(lastLms[ix[jn[2]]]);
+      const a1 = Math.atan2(A.y - B.y, A.x - B.x), a2 = Math.atan2(C.y - B.y, C.x - B.x);
       let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-      ctx.strokeStyle = '#ff9800'; ctx.lineWidth = 4 * u; ctx.beginPath(); ctx.arc(el.x, el.y, 36 * u, a1, a1 + d, d < 0); ctx.stroke();
-      label(el, `${Math.round(sm.elbow)}°`, '#ffb74d');
+      ctx.strokeStyle = '#ff9800'; ctx.lineWidth = 4 * u; ctx.beginPath(); ctx.arc(B.x, B.y, 36 * u, a1, a1 + d, d < 0); ctx.stroke();
+      label(B, `${Math.round(sm.ang)}°`, '#ffb74d');
     }
-    if (sm.align != null) label(px(lastLms[ix.hip]), `${Math.round(sm.align)}°`, '#80d8ff');
-    // barra vertical de profundidad (según el ángulo del codo) con marcas de los umbrales
-    const bx = W - 46 * u, by = 100 * u, bh = H - 260 * u, lo = 60, hi = 180, yOf = a => by + bh - ((clamp(a, lo, hi) - lo) / (hi - lo)) * bh;
+    if (sm.align != null) label(px(lastLms[ix.hip]), `${Math.round(sm.align)}°${cfg.kind === 'squat' ? ' torso' : ''}`, '#80d8ff');
+    // barra vertical de la señal principal con las marcas de los umbrales reales (adaptados a la persona)
+    const bx = W - 46 * u, by = 100 * u, bh = H - 400 * u, lo = 50, hi = 180, yOf = a => by + bh - ((clamp(a, lo, hi) - lo) / (hi - lo)) * bh;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; rr(ctx, bx, by, 18 * u, bh, 6 * u); ctx.fill();
-    [[cfg.prof.full, '#2ecc71'], [cfg.prof.zero, '#f0a92e'], [cfg.downStart, '#fff'], [cfg.upDone, '#fff']].forEach(([a, col]) => {
+    const marks = [[cfg.prof.full, '#2ecc71'], [cfg.prof.zero, '#f0a92e']];
+    if (machine.upEff != null) marks.push([Math.round(machine.downEff), '#fff'], [Math.round(machine.upEff), '#fff']);
+    marks.forEach(([a, col]) => {
       ctx.strokeStyle = col; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.moveTo(bx - 8 * u, yOf(a)); ctx.lineTo(bx + 26 * u, yOf(a)); ctx.stroke();
       ctx.font = `600 ${13 * u}px system-ui,Arial,sans-serif`; ctx.fillStyle = col; ctx.textAlign = 'right'; ctx.fillText(`${a}°`, bx - 10 * u, yOf(a) + 4 * u);
     });
-    if (sm.elbow != null) { ctx.fillStyle = '#ff9800'; ctx.beginPath(); ctx.arc(bx + 9 * u, yOf(sm.elbow), 9 * u, 0, 7); ctx.fill(); }
+    if (sm.main != null) { ctx.fillStyle = '#ff9800'; ctx.beginPath(); ctx.arc(bx + 9 * u, yOf(sm.main), 9 * u, 0, 7); ctx.fill(); }
+    // gráfico de los últimos 6 s: señal principal (naranja) y canal vertical (rosa)
+    const gx = W - 330 * u, gy = H - 150 * u, gw = 318 * u, gh = 126 * u, t1 = performance.now() / 1000;
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; rr(ctx, gx, gy, gw, gh, 8 * u); ctx.fill();
+    const gY = a => gy + gh - 6 * u - ((clamp(a, lo, hi) - lo) / (hi - lo)) * (gh - 12 * u);
+    if (machine.upEff != null) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1 * u; [machine.upEff, machine.downEff].forEach(a => { ctx.beginPath(); ctx.moveTo(gx, gY(a)); ctx.lineTo(gx + gw, gY(a)); ctx.stroke(); }); }
+    [['main', '#ff9800'], ['v', '#ff4fd8']].forEach(([k, col]) => {
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5 * u; ctx.beginPath(); let started = false;
+      trace.forEach(p => { if (p[k] == null) { started = false; return; } const x = gx + gw - ((t1 - p.t) / 6) * gw, y = gY(p[k]); if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } });
+      ctx.stroke();
+    });
     // texto de estado
-    const lines = [`Estado: ${machine.phase}${machine.settle ? ' (cierre)' : ''}${machine.noPlank ? ' · sin plancha' : ''}`, `Lado: ${side === 'left' ? 'izquierdo' : 'derecho'} · visib. ${lastMeas ? lastMeas.vis.toFixed(2) : '–'}`, `Detección: ${fps ? fps.toFixed(0) : '–'} FPS · ${det.delegate}${detEvery > 1 ? ' · cada 2 frames' : ''}`, `Profundidad: ${lastMeas && lastMeas.depth != null ? lastMeas.depth.toFixed(2) : '–'}`];
-    ctx.font = `600 ${16 * u}px ui-monospace,Consolas,monospace`; ctx.textAlign = 'left';
-    const bw = 360 * u, bh2 = (lines.length * 22 + 12) * u, y0 = H - bh2 - 12 * u;
+    const lines = [`Estado: ${machine.phase}${machine.settle ? ' (cierre)' : ''}${machine.noPlank ? ' · mala postura' : ''}`,
+      `Lado: ${side === 'left' ? 'izq.' : 'der.'} · visib. ${lastMeas ? lastMeas.vis.toFixed(2) : '–'} / ${lastMeas ? lastMeas.visOther.toFixed(2) : '–'}`,
+      `Umbrales: arriba ${machine.upEff != null ? Math.round(machine.upEff) : '–'}° · abajo ${machine.downEff != null ? Math.round(machine.downEff) : '–'}°`,
+      `Vertical: ${v ? v.vh.toFixed(2) : '–'} torsos · cara ${v ? v.faceN : 0}/11 pts`,
+      `Señal: ${sm.main != null ? sm.main.toFixed(0) : '–'}° (áng. ${sm.ang != null ? sm.ang.toFixed(0) : '–'}° · vert. ${vAng != null ? vAng.toFixed(0) : '–'}°)`,
+      `${fps ? fps.toFixed(0) : '–'} FPS · ${det.delegate}${detEvery > 1 ? ' · cada 2 frames' : ''}`];
+    ctx.font = `600 ${15 * u}px ui-monospace,Consolas,monospace`; ctx.textAlign = 'left';
+    const bw = 400 * u, bh2 = (lines.length * 21 + 12) * u, y0 = H - bh2 - 12 * u;
     ctx.fillStyle = 'rgba(0,0,0,.6)'; rr(ctx, 12 * u, y0, bw, bh2, 8 * u); ctx.fill();
-    ctx.fillStyle = '#9cff9c'; lines.forEach((s, i) => ctx.fillText(s, 22 * u, y0 + (24 + i * 22) * u));
+    ctx.fillStyle = '#9cff9c'; lines.forEach((s, i) => ctx.fillText(s, 22 * u, y0 + (22 + i * 21) * u));
     ctx.restore();
   }
 
@@ -405,8 +564,8 @@ export async function startPushupSession(opts) {
     setHud(h) { hud = { ...hud, ...h }; },
     // empieza a contar y a grabar
     begin() {
-      machine = createMachine(); reps = []; lastRep = null; sm = { elbow: null, align: null };
-      tBegin = nowSec(); tStartClock = performance.now() / 1000; pausedTotal = 0; paused = false; counting = true;
+      machine = createMachine(); reps = []; lastRep = null; resetSignals(); vbuf = []; trace = [];
+      tStartClock = performance.now() / 1000; pausedTotal = 0; paused = false; counting = true;
       mime = pickMime(); chunks = [];
       try {
         const stream = canvas.captureStream(30);
@@ -438,3 +597,4 @@ export async function startPushupSession(opts) {
     }
   };
 }
+export const startPushupSession = opts => startSession({ ...opts, exercise: 'flexiones' });

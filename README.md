@@ -34,14 +34,14 @@ La pizarra, sobre un campo a escala real.
 - **Compartir imagen:** en el celular abre el menú de compartir (WhatsApp, correo…) con una imagen de la pizarra; en el PC la descarga.
 
 ### Rutina
-Ejercicios con la cámara del celular. Por ahora hay uno, **Flexiones de brazo**; el catálogo está preparado para más.
+Ejercicios con la cámara del celular: **Flexiones de brazo** y **Sentadillas**; el catálogo está preparado para más. El conteo combina el ángulo de la articulación (codo o rodilla, fusionando los dos lados) con el movimiento vertical de la cabeza (nariz, ojos, orejas, boca), los hombros y la cadera, y se adapta a lo que estira cada persona arriba. La versión y el commit se ven arriba, junto al nombre de la app (`version.js`).
 - **Cómo colocar el celular:** apoyado en el suelo, **de costado** al jugador, a 1,5–2 m y en horizontal, con el cuerpo entero a la vista. Hasta que el semáforo diga «Cuerpo completo visible ✔» no se habilita **Empezar**. Hay cuenta atrás de 3 s.
 - **Qué hace:** el celular detecta la pose (MediaPipe, dentro del navegador), cuenta cada flexión, la califica y graba un video con el contador y la nota impresos. La primera vez descarga el detector (unos 5 MB) y después funciona sin conexión.
 - **Nota de cada flexión (0 a 100):** profundidad del codo 50 %, extensión arriba 20 %, alineación hombro-cadera-tobillo 20 % y control del ritmo 10 %. **≥ 85 Excelente**, **70–84 Buena**, **50–69 Regular**, **< 50 Incompleta**. Las incompletas se cuentan aparte y cada nota trae un consejo («Baja más el pecho», «Estira los brazos arriba», «Mantén la cadera alineada», «Más despacio»). Los umbrales están en `PUSHUP_CFG`, al principio de `pushup.js`.
 - **Rutinas:** nombre, jugador (opcional) y ejercicios con series, repeticiones y descanso. Cada serie guarda un entreno con su video.
 - **Historial:** fecha, jugador, repeticiones, nota media y 🎬 si hay video; al tocar una fila se ve el detalle, el video y se puede descargar o compartir.
 - **Los videos no se suben a Drive**: solo quedan en el dispositivo donde se grabaron (son unos 20 MB por minuto). Las rutinas y los entrenos sí se sincronizan.
-- **Modo desarrollador** (al pie de la pestaña): **Trackeo de cámara** dibuja el esqueleto, los ángulos, el estado del contador y los FPS sobre la imagen y el video; **Usar archivo de video en vez de cámara** permite probar en el PC con un video de flexiones tomado de costado.
+- **Modo desarrollador** (al pie de la pestaña): **Trackeo de cámara** dibuja el esqueleto, los ángulos, el estado del contador y los FPS sobre la imagen y el video; **Usar archivo de video en vez de cámara** permite probar en el PC con un video del ejercicio tomado de costado. Dibuja los 33 puntos del cuerpo (cara, manos y pies), las líneas de altura del suelo, la cabeza y los hombros, los umbrales reales y un gráfico de la señal.
 
 Para probar la app sin datos propios, en el Panel está el botón **Cargar datos de ejemplo**. Esos datos llevan la etiqueta "Ejemplo" y se borran con un botón.
 

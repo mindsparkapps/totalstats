@@ -8,8 +8,11 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const EJERCICIOS = {
-  flexiones: { id: 'flexiones', nombre: 'Flexiones de brazo', icono: '💪', desc: 'La cámara cuenta cada flexión, la califica de 0 a 100 y graba el video con el contador. Se coloca el celular de costado.' }
+  flexiones: { id: 'flexiones', nombre: 'Flexiones de brazo', unidad: 'flexiones', icono: '💪', desc: 'La cámara cuenta cada flexión, la califica de 0 a 100 y graba el video con el contador. Se coloca el celular de costado.', guia: 'Apoya el celular en el suelo, <b>de costado</b>, a 1,5–2 m y en horizontal. Que se vea el cuerpo entero.', luz: 'Elige un video de flexiones (de costado) para empezar.', pose: 'colócate en posición de plancha' },
+  sentadillas: { id: 'sentadillas', nombre: 'Sentadillas', unidad: 'sentadillas', icono: '🏋️', desc: 'La cámara cuenta cada sentadilla, la califica de 0 a 100 según lo que bajas y lo erguido que mantienes el torso, y graba el video. Se coloca el celular de costado.', guia: 'Apoya el celular en el suelo o en algo bajo, <b>de costado</b>, a 2–2,5 m y en horizontal. Que se vea de la cabeza a los pies.', luz: 'Elige un video de sentadillas (de costado) para empezar.', pose: 'ponte de pie de costado a la cámara' }
 };
+const unidadDe = id => (EJERCICIOS[id] || EJERCICIOS.flexiones).unidad;
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const NOTE_COLORS = { Excelente: '#2ecc71', Buena: '#8bd450', Regular: '#f0a92e', Incompleta: '#e74c4c' };
 const labelOf = n => (n >= 85 ? 'Excelente' : n >= 70 ? 'Buena' : n >= 50 ? 'Regular' : 'Incompleta');
 const noteBadge = n => `<span class="rating" style="background:${NOTE_COLORS[labelOf(n)]};color:#10241a" title="${labelOf(n)}">${n}</span>`;
@@ -80,7 +83,7 @@ $('#ru-form').addEventListener('submit', async e => {
 
 /* ---------- Historial: detalle, descarga y borrado ---------- */
 let detailUrl = null, detailBlob = null, detailId = null;
-function fileNameFor(e, mime) { return `flexiones-${e.fecha || today()}-${(e.id || '').slice(-4)}.${/mp4/.test(mime || '') ? 'mp4' : 'webm'}`; }
+function fileNameFor(e, mime) { return `${e.ejercicio || 'flexiones'}-${e.fecha || today()}-${(e.id || '').slice(-4)}.${/mp4/.test(mime || '') ? 'mp4' : 'webm'}`; }
 async function shareOrDownload(blob, name) {
   const file = new File([blob], name, { type: blob.type });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
@@ -88,8 +91,8 @@ async function shareOrDownload(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 function repsTable(reps) {
-  return `<div class="tbl-wrap"><table><thead><tr><th class="n">#</th><th class="n">Nota</th><th>Resultado</th><th class="n">Prof.</th><th class="n">Ext.</th><th class="n">Alin.</th><th class="n">Ctrl.</th><th class="n">Dur.</th><th class="n">Codo mín.</th></tr></thead><tbody>
-    ${(reps || []).map(r => `<tr><td class="n">${r.n}</td><td class="n">${noteBadge(r.nota)}</td><td>${labelOf(r.nota)}</td><td class="n">${r.prof}</td><td class="n">${r.ext}</td><td class="n">${r.alin}</td><td class="n">${r.ctrl}</td><td class="n">${(+r.dur).toFixed(1)} s</td><td class="n">${r.angMin}°</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tbl-wrap"><table><thead><tr><th class="n">#</th><th class="n">Nota</th><th>Resultado</th><th class="n">Prof.</th><th class="n">Ext.</th><th class="n">Alin.</th><th class="n">Ctrl.</th><th class="n">Dur.</th><th class="n">Ángulo mín.</th><th class="n" title="Cuánto sube y baja el cuerpo, en % del largo del torso">Recorrido</th></tr></thead><tbody>
+    ${(reps || []).map(r => `<tr><td class="n">${r.n}</td><td class="n">${noteBadge(r.nota)}</td><td>${labelOf(r.nota)}</td><td class="n">${r.prof}</td><td class="n">${r.ext}</td><td class="n">${r.alin}</td><td class="n">${r.ctrl}</td><td class="n">${(+r.dur).toFixed(1)} s</td><td class="n">${r.angMin}°</td><td class="n">${r.caida != null ? r.caida + ' %' : '–'}</td></tr>`).join('')}</tbody></table></div>`;
 }
 const repsChart = reps => `<div class="chart">${lineChart((reps || []).map(r => ({ label: String(r.n), value: r.nota / 10 })), { h: 190 })}</div><p class="hint" style="margin:0">Nota de cada repetición (escala 0–100 mostrada como 0–10).</p>`;
 async function openEntreno(id) {
@@ -101,7 +104,7 @@ async function openEntreno(id) {
   $('#entreno-detail').innerHTML = `<div class="dlg-h"><h3 class="grow">${esc((EJERCICIOS[e.ejercicio] || {}).nombre || e.ejercicio)} · ${fdate(e.fecha)}</h3><button class="btn ghost sm" type="button" data-close>Cerrar</button></div>
     <div class="dlg-b">
       <div class="hint">${j ? esc(j.nombre) + ' · ' : ''}${fmtDur(+e.duracionSeg || 0)} de ejercicio</div>
-      <div class="statrow"><div><b>${+e.total || 0}</b><span>Flexiones</span></div><div><b>${+e.completas || 0}</b><span>Completas</span></div><div><b>${(+e.total || 0) - (+e.completas || 0)}</b><span>Incompletas</span></div><div><b style="color:${NOTE_COLORS[labelOf(+e.notaMedia || 0)]}">${+e.notaMedia || 0}</b><span>Nota media</span></div></div>
+      <div class="statrow"><div><b>${+e.total || 0}</b><span>${esc(cap(unidadDe(e.ejercicio)))}</span></div><div><b>${+e.completas || 0}</b><span>Completas</span></div><div><b>${(+e.total || 0) - (+e.completas || 0)}</b><span>Incompletas</span></div><div><b style="color:${NOTE_COLORS[labelOf(+e.notaMedia || 0)]}">${+e.notaMedia || 0}</b><span>Nota media</span></div></div>
       ${repsChart(e.reps)}${repsTable(e.reps)}
       ${detailUrl ? `<video class="ru-player" src="${detailUrl}" controls playsinline></video><div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-ru="share-video">Descargar o compartir</button><button class="btn ghost danger" type="button" data-ru="del-video">Borrar video</button></div>`
         : (e.videoId ? '<p class="hint">El video se grabó en otro dispositivo o ya se borró: los videos no se suben a Drive.</p>' : '')}
@@ -120,6 +123,7 @@ async function deleteVideoOf(e) {
 let ex = null, modPromise = null;
 const loadMod = () => (modPromise || (modPromise = import('./pushup.js').catch(err => { modPromise = null; throw err; })));
 const GUIDE_SVG = `<svg viewBox="0 0 220 110" class="ex-guide-svg" role="img" aria-label="El celular en el suelo, de costado al jugador"><rect x="1" y="1" width="218" height="108" rx="10" fill="none" stroke="currentColor" opacity=".25"/><line x1="10" y1="92" x2="210" y2="92" stroke="currentColor" opacity=".5"/><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"><line x1="95" y1="62" x2="170" y2="82"/><line x1="95" y1="62" x2="92" y2="90"/><line x1="170" y1="82" x2="176" y2="90"/></g><circle cx="86" cy="56" r="9" fill="currentColor"/><rect x="12" y="68" width="26" height="24" rx="4" fill="var(--accent)"/><path d="M40 78l36-12" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/><text x="16" y="62" font-size="11" fill="currentColor">celular</text><text x="110" y="30" font-size="11" fill="currentColor">1,5 – 2 m · de costado</text></svg>`;
+const GUIDE_SQUAT_SVG = `<svg viewBox="0 0 220 110" class="ex-guide-svg" role="img" aria-label="El celular a un lado, la persona de costado"><rect x="1" y="1" width="218" height="108" rx="10" fill="none" stroke="currentColor" opacity=".25"/><line x1="10" y1="96" x2="210" y2="96" stroke="currentColor" opacity=".5"/><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"><line x1="150" y1="34" x2="146" y2="60"/><line x1="146" y1="60" x2="168" y2="68"/><line x1="168" y1="68" x2="160" y2="94"/><line x1="146" y1="60" x2="128" y2="52"/></g><circle cx="152" cy="24" r="9" fill="currentColor"/><rect x="12" y="72" width="26" height="24" rx="4" fill="var(--accent)"/><path d="M40 80l70-8" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/><text x="16" y="66" font-size="11" fill="currentColor">celular</text><text x="40" y="30" font-size="11" fill="currentColor">2 – 2,5 m · de costado</text></svg>`;
 const panel = () => $('#ex-panel');
 
 function beep(freq = 880, ms = 120) {
@@ -172,17 +176,18 @@ async function newSession() {
   const token = ++ex.sessionToken, v = $('#ex-video'), c = $('#ex-canvas');
   if (ex.session) { try { await ex.session.stop(); } catch {} ex.session = null; }
   ex.visible = false; updateStart();
-  if (ex.fileMode && !v.src) { setLight('wait', 'Elige un video de flexiones (de costado) para empezar.'); return; }
+  const q = ex.queue[ex.idx], def = EJERCICIOS[q.ejercicio];
+  if (ex.fileMode && !v.src) { setLight('wait', def.luz); return; }
   setLight('wait', 'Cargando detector… (solo la primera vez)');
   try {
     ex.mod = await loadMod();
-    const session = await ex.mod.startPushupSession({
-      video: v, canvas: c, mirror: !ex.fileMode && ex.facing === 'user', devTracking: devTracking,
+    const session = await ex.mod.startSession({
+      exercise: q.ejercicio, video: v, canvas: c, mirror: !ex.fileMode && ex.facing === 'user', devTracking: devTracking,
       onRep: onRep, onState: onState
     });
     if (!ex || token !== ex.sessionToken) { session.stop(); return; }
     ex.session = session;
-    setLight('wait', 'Buscando el cuerpo… colócate en posición de plancha.');
+    setLight('wait', `Buscando el cuerpo… ${def.pose}.`);
   } catch (err) {
     console.warn(err);
     setLight('bad', 'No se pudo cargar el detector. La primera vez hace falta conexión a internet.');
@@ -215,7 +220,7 @@ function showPrep() {
   const q = ex.queue[ex.idx], e = EJERCICIOS[q.ejercicio];
   setMsg('');
   panel().innerHTML = `<div class="ex-prep">
-    <div class="ex-guide">${GUIDE_SVG}<p class="hint">Apoya el celular en el suelo, <b>de costado</b>, a 1,5–2 m y en horizontal. Que se vea el cuerpo entero.</p></div>
+    <div class="ex-guide">${q.ejercicio === 'sentadillas' ? GUIDE_SQUAT_SVG : GUIDE_SVG}<p class="hint">${e.guia}</p></div>
     <div class="ex-form">
       <div><h3>${esc(e.nombre)}</h3><div class="hint">${ex.rutina ? esc(ex.rutina.nombre) + ' · ' : 'Práctica libre · '}${q.label || 'Serie única'}</div></div>
       <div class="ex-light" id="ex-light" data-s="wait" role="status">Cargando detector… (solo la primera vez)</div>
@@ -252,7 +257,7 @@ async function startCountdown() {
 }
 function showRun() {
   const q = ex.queue[ex.idx];
-  panel().innerHTML = `<div class="ex-run"><div class="ex-count"><b id="ex-n">0</b>${ex.objetivo ? ` / ${ex.objetivo}` : ''}<span class="hint"> flexiones${q.label ? ' · ' + q.label : ''}</span></div>
+  panel().innerHTML = `<div class="ex-run"><div class="ex-count"><b id="ex-n">0</b>${ex.objetivo ? ` / ${ex.objetivo}` : ''}<span class="hint"> ${unidadDe(q.ejercicio)}${q.label ? ' · ' + q.label : ''}</span></div>
     <div class="ex-acts"><button class="btn" type="button" data-ru="ex-pause" id="ex-pause">Pausa</button><button class="btn primary" type="button" data-ru="ex-finish">Terminar</button>${devBtn()}${voiceBtn()}</div></div>`;
   ex.session.setHud({ serie: ex.queue.length > 1 ? `${q.label || ''} (${ex.idx + 1}/${ex.queue.length})` : '' });
 }
@@ -269,9 +274,9 @@ function showResult() {
   if (ex.blobUrl) URL.revokeObjectURL(ex.blobUrl); ex.blobUrl = r.blob ? URL.createObjectURL(r.blob) : null;
   const best = r.mejor, worst = r.peor;
   panel().innerHTML = `<div class="ex-result">
-    <div class="statrow"><div><b>${r.total}</b><span>Flexiones${r.incompletas ? ` · ${r.incompletas} incompletas` : ''}</span></div><div><b>${r.completas}</b><span>Completas</span></div><div><b style="color:${NOTE_COLORS[labelOf(r.notaMedia)]}">${r.notaMedia}</b><span>Nota media</span></div>
+    <div class="statrow"><div><b>${r.total}</b><span>${cap(unidadDe(ex.queue[ex.idx].ejercicio))}${r.incompletas ? ` · ${r.incompletas} incompletas` : ''}</span></div><div><b>${r.completas}</b><span>Completas</span></div><div><b style="color:${NOTE_COLORS[labelOf(r.notaMedia)]}">${r.notaMedia}</b><span>Nota media</span></div>
       <div><b>${best ? best.nota : '–'}</b><span>Mejor${best ? ' (#' + best.n + ')' : ''}</span></div><div><b>${worst ? worst.nota : '–'}</b><span>Peor${worst ? ' (#' + worst.n + ')' : ''}</span></div></div>
-    <div class="ex-res-cols">${r.total ? repsChart(r.reps) : '<p class="hint">No se contó ninguna flexión.</p>'}
+    <div class="ex-res-cols">${r.total ? repsChart(r.reps) : '<p class="hint">No se contó ninguna repetición.</p>'}
       ${ex.blobUrl ? `<div><video class="ru-player" src="${ex.blobUrl}" controls playsinline></video><button class="btn sm" type="button" data-ru="ex-share" style="margin-top:6px">Descargar o compartir</button></div>` : '<p class="hint">Este navegador no pudo grabar el video.</p>'}</div>
     <div class="ex-acts"><button class="btn primary" type="button" data-ru="ex-save">Guardar</button><button class="btn" type="button" data-ru="ex-again">Repetir</button><button class="btn ghost danger" type="button" data-ru="ex-discard">Descartar</button></div></div>`;
 }
@@ -295,7 +300,7 @@ function advance(q) {
 async function showRest(sec) {
   ex.state = 'rest'; const end = Date.now() + sec * 1000;
   const next = ex.queue[ex.idx];
-  panel().innerHTML = `<div class="ex-rest"><div class="eyebrow">Descanso</div><div class="ex-rest-n num" id="ex-rest-n">${sec}</div><div class="hint">Siguiente: ${esc(next.label || 'ejercicio')} · ${next.reps} flexiones</div><button class="btn primary" type="button" data-ru="ex-skip">Saltar descanso</button></div>`;
+  panel().innerHTML = `<div class="ex-rest"><div class="eyebrow">Descanso</div><div class="ex-rest-n num" id="ex-rest-n">${sec}</div><div class="hint">Siguiente: ${esc(next.label || 'ejercicio')} · ${next.reps} ${unidadDe(next.ejercicio)}</div><button class="btn primary" type="button" data-ru="ex-skip">Saltar descanso</button></div>`;
   ex.skip = false;
   while (ex && ex.state === 'rest' && !ex.skip) {
     const left = Math.ceil((end - Date.now()) / 1000); const el = $('#ex-rest-n'); if (el) el.textContent = Math.max(0, left);
