@@ -244,3 +244,60 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   .frames .fr{min-width:44px;height:44px}
   input[type=text],input[type=number],input[type=date],input[type=search],select{min-height:44px;font-size:16px}
 }
+
+/* Rutina */
+.ru-cat{display:grid;gap:10px}
+.ru-ex{display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.ru-ex .grow{flex:1;min-width:0}
+.ru-ico{font-size:1.8rem;flex:none}
+.ru-row{cursor:pointer}
+.ru-row:hover{background:var(--surface-2)}
+.ru-items{display:grid;gap:8px}
+.ru-item{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto;gap:8px;align-items:end}
+.ru-item select{align-self:end}
+@media (max-width:560px){.ru-item{grid-template-columns:repeat(3,minmax(0,1fr))}.ru-item .ri-ej{grid-column:1/-1}}
+#ru-dev summary{cursor:pointer;font-weight:700}
+.dev-body{display:grid;gap:8px;margin-top:12px}
+.dev-body p{margin:0 0 6px}
+label.chk{display:flex;align-items:center;gap:8px;font-weight:600;font-size:.92rem}
+label.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.ru-player{width:100%;max-height:50vh;background:#000;border-radius:8px}
+
+/* Pantalla del ejercicio (a pantalla completa) */
+dialog.fs{width:100vw;max-width:100vw;height:100vh;height:100dvh;max-height:none;border:0;border-radius:0;background:#0b100d;color:#e4ece6;flex-direction:column}
+dialog.fs[open]{display:flex}
+dialog.fs .hint{color:#a9b8ae}
+.ex-stage{position:relative;flex:1 1 auto;min-height:0;background:#000;display:grid;place-items:center;overflow:hidden}
+.ex-stage canvas{width:100%;height:100%;object-fit:contain;display:block}
+.pu-video{position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:0;top:0}
+.ex-msg{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:min(30vh,14rem);font-weight:700;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.7);pointer-events:none;text-align:center}
+.ex-msg:not([data-big]){font-size:min(18vh,8rem)}
+.ex-stage::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 0 var(--flash,transparent)}
+.ex-stage.flash::after{animation:exflash .45s ease-out}
+@keyframes exflash{from{box-shadow:inset 0 0 0 14px var(--flash,transparent)}to{box-shadow:inset 0 0 0 0 var(--flash,transparent)}}
+.ex-panel{flex:0 0 auto;max-height:46vh;overflow:auto;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:#141c17;border-top:1px solid #2a3630}
+.ex-panel .btn{background:#1d2822;border-color:#2f3d35;color:#e4ece6}
+.ex-panel .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ex-panel .btn.ghost{background:none;border-color:transparent}
+.ex-panel .btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);border-color:var(--accent)}
+.ex-panel input,.ex-panel select{background:#0f1512;color:#e4ece6;border-color:#2f3d35}
+.ex-panel label.f{color:#a9b8ae}
+.ex-panel .statrow div{background:#1d2822}
+.ex-panel .statrow span{color:#a9b8ae}
+.ex-panel table{color:#e4ece6}
+.ex-panel .chart .tx{fill:#a9b8ae}
+.ex-prep{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:720px){.ex-prep{grid-template-columns:minmax(0,1fr)}.ex-guide{display:none}}
+.ex-guide-svg{width:100%;height:auto;color:#e4ece6}
+.ex-form{display:grid;gap:10px}
+.ex-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ex-light{padding:8px 12px;border-radius:8px;font-weight:700;font-size:.9rem;background:#1d2822}
+.ex-light[data-s="ok"]{background:color-mix(in srgb,var(--good) 30%,#0b100d);color:#bff3d3}
+.ex-light[data-s="bad"]{background:color-mix(in srgb,var(--bad) 30%,#0b100d);color:#ffd0d0}
+.ex-run{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ex-count b{font-family:var(--f-display);font-size:3rem;line-height:1}
+.ex-result{display:grid;gap:12px}
+.ex-res-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:720px){.ex-res-cols{grid-template-columns:minmax(0,1fr)}}
+.ex-rest{display:grid;gap:8px;justify-items:center;padding:12px 0}
+.ex-rest-n{font-size:5rem;line-height:1}

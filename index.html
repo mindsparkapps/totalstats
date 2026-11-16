@@ -30,6 +30,7 @@
       <button role="tab" data-tab="jugadores" aria-selected="false">Jugadores</button>
       <button role="tab" data-tab="sesiones" aria-selected="false">Sesiones</button>
       <button role="tab" data-tab="tactica" aria-selected="false">Táctica</button>
+      <button role="tab" data-tab="rutina" aria-selected="false">Rutina</button>
     </nav>
     <button class="install-btn" id="installBtn" type="button" hidden title="Instalar la app en este dispositivo"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Instalar</span></button>
     <div class="account-area" id="accountArea">
@@ -184,6 +185,34 @@
       </div>
     </div>
   </section>
+
+  <!-- RUTINA -->
+  <section class="view" id="v-rutina" hidden>
+    <div class="head-row">
+      <div><div class="eyebrow">Ejercicios con cámara</div><h2>Rutina</h2></div>
+      <div class="toolbar"><button class="btn primary" type="button" id="ru-new">Nueva rutina</button></div>
+    </div>
+    <div class="card" id="ru-catalog"></div>
+    <div class="grid">
+      <div class="card c5" style="display:grid;gap:12px;align-content:start">
+        <h3>Mis rutinas</h3>
+        <div class="list" id="ru-list"></div>
+      </div>
+      <div class="card c7" style="display:grid;gap:12px;align-content:start">
+        <div class="head-row"><h3>Historial de entrenos</h3><span class="hint" id="ru-space"></span></div>
+        <div class="tbl-wrap" id="ru-history"></div>
+      </div>
+    </div>
+    <details class="card" id="ru-dev">
+      <summary>⚙️ Modo desarrollador</summary>
+      <div class="dev-body">
+        <label class="chk"><input type="checkbox" id="ru-dev-track"> Trackeo de cámara</label>
+        <p class="hint">Dibuja sobre la imagen (y en el video grabado) los puntos del cuerpo, los ángulos, el estado del contador y los FPS. Se guarda solo en este dispositivo.</p>
+        <label class="chk"><input type="checkbox" id="ru-dev-file"> Usar archivo de video en vez de cámara</label>
+        <p class="hint">Para probar en el PC: en la pantalla del ejercicio se elige un video de flexiones tomado de costado.</p>
+      </div>
+    </details>
+  </section>
 </main>
 
 <!-- Player dialog -->
@@ -241,11 +270,42 @@
 <!-- Detail dialog -->
 <dialog id="dlg-detail" class="wide"><div id="detail"></div></dialog>
 
+<!-- Rutina: constructor -->
+<dialog id="dlg-rutina">
+  <form method="dialog" id="ru-form">
+    <div class="dlg-h"><h3 class="grow" id="ru-title">Nueva rutina</h3><button class="btn ghost sm" type="button" data-close>Cerrar</button></div>
+    <div class="dlg-b">
+      <label class="f">Nombre<input type="text" id="ru-nombre" required maxlength="60" placeholder="Ej. Pecho y brazos"></label>
+      <label class="f">Jugador (opcional)<select id="ru-jugador"></select></label>
+      <div>
+        <div class="eyebrow" style="margin-bottom:6px">Ejercicios</div>
+        <div id="ru-items" class="ru-items"></div>
+        <button class="btn sm" type="button" id="ru-add-item" style="margin-top:8px">+ Añadir ejercicio</button>
+      </div>
+    </div>
+    <div class="dlg-f"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="submit">Guardar rutina</button></div>
+  </form>
+</dialog>
+
+<!-- Rutina: pantalla del ejercicio (pantalla completa) -->
+<dialog id="dlg-ejercicio" class="fs">
+  <div class="ex-stage">
+    <video id="ex-video" class="pu-video" playsinline muted></video>
+    <canvas id="ex-canvas" width="640" height="360"></canvas>
+    <div class="ex-msg" id="ex-msg" hidden></div>
+  </div>
+  <div class="ex-panel" id="ex-panel"></div>
+</dialog>
+
+<!-- Rutina: detalle de un entreno -->
+<dialog id="dlg-entreno" class="wide"><div id="entreno-detail"></div></dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="config.js"></script>
 <script src="sync.js"></script>
 <script src="app.js"></script>
+<script src="rutina.js"></script>
 </body>
 </html>

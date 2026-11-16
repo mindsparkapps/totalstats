@@ -2,15 +2,16 @@
 // Primero local (IndexedDB), luego nube: sync.js sube y baja los cambios a Google Drive.
 
 // ----- IndexedDB (lo usa también sync.js) -----
-const STORES = ['jugadores', 'sesiones', 'jugadas'];
+const STORES = ['jugadores', 'sesiones', 'jugadas', 'rutinas', 'entrenos']; // se sincronizan con Drive
+const LOCAL_STORES = ['videos']; // solo en este dispositivo: sync.js nunca los toca
 let db = null;
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('libreta-del-mister', 1);
+    const req = indexedDB.open('libreta-del-mister', 2);
     req.onupgradeneeded = () => {
       const d = req.result;
-      STORES.forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' }); });
+      [...STORES, ...LOCAL_STORES].forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' }); });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -38,7 +39,7 @@ function notifyDataChanged() {
 (() => {
 const ATTRS = [['vel','Velocidad'],['tec','Técnica'],['pas','Pase'],['tir','Tiro'],['def','Defensa'],['res','Resistencia']];
 const POS = ['Portero','Defensa central','Lateral','Mediocentro','Mediapunta','Extremo','Delantero'];
-const S = { jugadores: [], sesiones: [], jugadas: [] };
+const S = { jugadores: [], sesiones: [], jugadas: [], rutinas: [], entrenos: [] };
 let store = null;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -278,6 +279,7 @@ function updAvg() { let s = 0; ATTRS.forEach(([k]) => { const v = +$('#r-' + k).
 function renderAll() {
   renderPanel(); renderJugadores(); fillPlayerSelects(); renderHistory(); renderPlays();
   if ($('#dlg-detail').open) renderDetail();
+  if (window.Rutina) window.Rutina.render();
   if (T.sel) renderSel();
   drawTokens();
 }
@@ -293,7 +295,7 @@ function go(tab) {
   try { if (location.hash !== '#' + tab) history.replaceState(null, '', '#' + tab); } catch {}
 }
 $$('nav.tabs button').forEach(b => b.addEventListener('click', () => go(b.dataset.tab)));
-window.addEventListener('hashchange', () => { const t = location.hash.slice(1); if (['panel', 'jugadores', 'sesiones', 'tactica'].includes(t)) go(t); });
+window.addEventListener('hashchange', () => { const t = location.hash.slice(1); if (['panel', 'jugadores', 'sesiones', 'tactica', 'rutina'].includes(t)) go(t); });
 
 /* ---------- Player form ---------- */
 let editingPlayer = null;
@@ -709,10 +711,20 @@ installBtn.addEventListener('click', async () => {
   $('#dlg-install').showModal();
 });
 buildSliders(); updAvg(); $('#s-date').value = today();
+// API para rutina.js. Los videos viven solo en IndexedDB local (nunca pasan por sync.js).
+const videoDb = {
+  put: rec => dbTx('videos', os => os.put(rec)),
+  get: id => new Promise((ok, ko) => { const r = db.transaction('videos', 'readonly').objectStore('videos').get(id); r.onsuccess = () => ok(r.result || null); r.onerror = () => ko(r.error); }),
+  del: id => dbTx('videos', os => os.delete(id)),
+  keys: () => new Promise((ok, ko) => { const r = db.transaction('videos', 'readonly').objectStore('videos').getAllKeys(); r.onsuccess = () => ok(r.result || []); r.onerror = () => ko(r.error); }),
+  all: () => new Promise((ok, ko) => { const r = db.transaction('videos', 'readonly').objectStore('videos').getAll(); r.onsuccess = () => ok(r.result || []); r.onerror = () => ko(r.error); })
+};
+window.App = { S, store, toast, uid, esc, today, fdate, playerById, sortedPlayers, ratingColor, lineChart, arm, write, videoDb };
 drawPitch(); newBoard(); renderBoard(); renderAll();
+const TABS = ['panel', 'jugadores', 'sesiones', 'tactica', 'rutina'];
 const hashTab = location.hash.slice(1);
-let startTab = ['panel', 'jugadores', 'sesiones', 'tactica'].includes(hashTab) ? hashTab : null;
+let startTab = TABS.includes(hashTab) ? hashTab : null;
 if (!startTab) { try { startTab = localStorage.getItem('libreta-tab'); } catch {} }
-go(['panel', 'jugadores', 'sesiones', 'tactica'].includes(startTab) ? startTab : 'panel');
+go(TABS.includes(startTab) ? startTab : 'panel');
 initStore();
 })();
