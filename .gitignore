@@ -1,0 +1,10 @@
+# Caché local de Wrangler (Cloudflare)
+.wrangler/
+
+# Configuración local de Claude Code (previews, hooks)
+.claude/
+
+# Grafo de graphify y su configuración: herramientas locales, no van al sitio publicado
+graphify-out/
+CLAUDE.md
+.gitattributes
