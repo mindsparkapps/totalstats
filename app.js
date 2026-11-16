@@ -495,11 +495,11 @@ function drawPitch() {
   $('#g-pitch').innerHTML = g;
 }
 // En pantallas angostas las fichas se agrandan para poder arrastrarlas con el dedo
-let TK = 1;
-function updateTokenScale() { const w = Math.min(svg.clientWidth, svg.clientHeight * 1150 / 780) || svg.clientWidth || 800; const k = Math.min(1.8, Math.max(1, 640 / w)); if (Math.abs(k - TK) > 0.05) { TK = k; drawTokens(); } }
+let TK = 2;
+function updateTokenScale() { const w = Math.min(svg.clientWidth, svg.clientHeight * 1150 / 780) || svg.clientWidth || 800; const k = 2 * Math.min(1.5, Math.max(1, 640 / w)); if (Math.abs(k - TK) > 0.05) { TK = k; drawTokens(); } }
 // la ficha seleccionada se ve más grande
-const SELK = 1.4;
-const tf = (x, y, sel) => `translate(${x} ${y}) scale(${sel ? TK * SELK : TK})`;
+const SELK = 1; // al arrastrar, la ficha se duplica y al soltar vuelve a su tamaño
+const tf = (x, y, sel, id) => `translate(${x} ${y}) scale(${drag && drag.id === id ? TK * 2 : sel ? TK * SELK : TK})`;
 window.addEventListener('resize', updateTokenScale);
 window.addEventListener('orientationchange', () => setTimeout(updateTokenScale, 300));
 function shortName(pid) { const j = pid && playerById(pid); return j ? j.nombre.split(' ')[0] : ''; }
@@ -511,10 +511,11 @@ function drawTokens(posOverride, arrowsOverride, arrowOpacity = 1) {
   $('#g-tokens').innerHTML = T.meta.filter(m => m.team !== 'b' || T.showB).map(m => {
     const p = pos[m.id]; if (!p) return '';
     const sel = T.sel === m.id;
-    if (m.team === 'ball') return `<g class="tok" data-tok="ball" tabindex="0" role="button" aria-label="Balón" transform="${tf(p.x, p.y, sel)}"><circle class="ring" r="20" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="5 4" opacity="${sel ? 1 : 0}"/><circle r="11" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/><path d="M0 -5 L4.8 -1.5 L3 4 L-3 4 L-4.8 -1.5Z" fill="#1a1a1a"/></g>`;
+    if (m.team === 'ball') return `<g class="tok" data-tok="ball" tabindex="0" role="button" aria-label="Balón" transform="${tf(p.x, p.y, sel, m.id)}"><circle class="hit" r="34" fill="transparent"/><circle class="ring" r="20" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="5 4" opacity="${sel ? 1 : 0}"/><circle r="11" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/><path d="M0 -5 L4.8 -1.5 L3 4 L-3 4 L-4.8 -1.5Z" fill="#1a1a1a"/></g>`;
     const fill = m.team === 'a' ? 'var(--team-a)' : 'var(--team-b)';
     const nm = m.team === 'a' ? shortName(m.playerId) : '';
-    return `<g class="tok" data-tok="${m.id}" tabindex="0" role="button" aria-label="${m.team === 'a' ? 'Mi equipo' : 'Rival'} ${esc(m.label)} ${esc(nm)}" transform="${tf(p.x, p.y, sel)}">
+    return `<g class="tok" data-tok="${m.id}" tabindex="0" role="button" aria-label="${m.team === 'a' ? 'Mi equipo' : 'Rival'} ${esc(m.label)} ${esc(nm)}" transform="${tf(p.x, p.y, sel, m.id)}">
+      <circle class="hit" r="40" fill="transparent"/>
       <circle class="ring" r="29" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="6 5" opacity="${sel ? 1 : 0}"/>
       <circle r="21" fill="${fill}" stroke="var(--chalk)" stroke-width="3"/>
       <text text-anchor="middle" y="7.5" fill="#fff" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="22" style="pointer-events:none">${esc(m.label)}</text>
@@ -539,7 +540,7 @@ svg.addEventListener('pointerdown', e => {
     if (tok) {
       const id = tok.dataset.tok, q = fr.pos[id];
       drag = { id, dx: q.x - p.x, dy: q.y - p.y, el: tok, moved: false };
-      svg.setPointerCapture(e.pointerId); select(id, false);
+      svg.setPointerCapture(e.pointerId); select(id, false); tok.setAttribute('transform', tf(q.x, q.y, true, id));
       if (navigator.vibrate) navigator.vibrate(8); // pequeño toque al agarrar la ficha (no existe en iPhone)
     } else select(null);
   } else if (T.tool === 'pase' || T.tool === 'carrera') {
@@ -559,7 +560,7 @@ svg.addEventListener('pointermove', e => {
   if (drag) {
     const p = svgPt(e), q = T.frames[T.cur].pos[drag.id];
     q.x = Math.round(clampX(p.x + drag.dx)); q.y = Math.round(clampY(p.y + drag.dy)); drag.moved = true;
-    drag.el.setAttribute('transform', tf(q.x, q.y, T.sel === drag.id));
+    drag.el.setAttribute('transform', tf(q.x, q.y, T.sel === drag.id, drag.id));
   } else if (draft) {
     const p = svgPt(e); draft.x2 = clampX(p.x); draft.y2 = clampY(p.y);
     const d = $('#draft'); ['x1', 'y1', 'x2', 'y2'].forEach(k => d.setAttribute(k, draft[k])); d.setAttribute('visibility', 'visible');
@@ -580,7 +581,7 @@ svg.addEventListener('keydown', e => {
   const d = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key]; if (!d) return;
   e.preventDefault(); const q = T.frames[T.cur].pos[T.sel]; const m = e.shiftKey ? 4 : 1;
   q.x = clampX(q.x + d[0] * m); q.y = clampY(q.y + d[1] * m);
-  const el = svg.querySelector(`[data-tok="${T.sel}"]`); if (el) el.setAttribute('transform', tf(q.x, q.y, true));
+  const el = svg.querySelector(`[data-tok="${T.sel}"]`); if (el) el.setAttribute('transform', tf(q.x, q.y, true, T.sel));
 });
 function select(id, redraw = true) {
   T.sel = id;
@@ -589,7 +590,7 @@ function select(id, redraw = true) {
     const on = el.dataset.tok === id, p = fr && fr.pos[el.dataset.tok];
     el.classList.toggle('sel', on);
     el.querySelector('.ring').setAttribute('opacity', on ? 1 : 0);
-    if (p && !T.playing) el.setAttribute('transform', tf(p.x, p.y, on));
+    if (p && !T.playing) el.setAttribute('transform', tf(p.x, p.y, on, el.dataset.tok));
   });
   renderSel();
 }
