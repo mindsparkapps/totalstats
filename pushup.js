@@ -126,8 +126,71 @@ export const RAISE_CFG = {
   warnPosture: ''
 };
 
+// --- Balón entre los pies: celular horizontal, de frente a la persona (cuerpo entero a la vista). ---
+// Se usan dos detectores: la pose (para los pies) y un detector de objetos (para el balón, clase «sports ball»).
+// Un «cambio de pie» se cuenta cuando el balón pasa de estar junto a un pie a estar junto al otro.
+// Las distancias se miden en «largos de pierna» (cadera-tobillo), así no dependen de lo lejos que esté el celular.
+export const BALL_CFG = {
+  ...SQUAT_CFG,
+  id: 'balon', unit: 'cambio de pie', units: 'cambios de pie', kind: 'ball', view: 'frontal',
+  keys: ['kn', 'an'], minVis: 0.4, lowFps: 10,
+  reach: 0.8,          // distancia máxima balón-pie para «tener» el balón (largos de pierna)
+  margin: 0.8,         // el pie dueño debe estar al menos así de más cerca que el otro (0.8 = 20 % más cerca)
+  minGapSec: 0.15,     // dos cambios más juntos que esto se toman como rebote
+  maxGapSec: 2.5,      // si pasó más tiempo sin tocar, no cuenta como cambio (solo reinicia)
+  lostSec: 1.5,        // sin ver el balón este tiempo se olvida quién lo tenía
+  ballHoldSec: 0.35,   // cuánto tiempo se da por buena la última posición del balón
+  closeFull: 0.2, closeZero: 0.8,       // control: distancia al pie con 100 % y con 0 % (largos de pierna)
+  tempo: { tooFast: 0.2, okMin: 0.35, okMax: 1.2, tooSlow: 2.5 },
+  tips: { prof: 'Mantén el balón más pegado al pie', ext: '', alin: '', fast: 'Más controlado, sin prisa', slow: 'Un poco más de ritmo', ok: '¡Muy bien!' }
+};
+
+// Estado del conteo de cambios de pie (función pura: se prueba con Node)
+export function createBallState() { return { owner: null, ownerT: 0, touchD: Infinity, lastCount: -Infinity, count: 0, lastBallT: -Infinity, dL: null, dR: null }; }
+// s = { t (s), ball: {x,y}|null, L: {x,y}|null, R: {x,y}|null, unit (px de un largo de pierna) }. Devuelve { type:'rep', rep } o null.
+export function stepBall(st, s, cfg = BALL_CFG) {
+  const { t, ball, L, R, unit } = s;
+  if (!ball || !unit || (!L && !R)) { if (t - st.lastBallT > cfg.lostSec) { st.owner = null; st.touchD = Infinity; } return null; }
+  st.lastBallT = t;
+  const dL = L ? Math.hypot(ball.x - L.x, ball.y - L.y) / unit : Infinity, dR = R ? Math.hypot(ball.x - R.x, ball.y - R.y) / unit : Infinity;
+  st.dL = dL; st.dR = dR;
+  const cand = dL <= cfg.reach && dL < dR * cfg.margin ? 'L' : dR <= cfg.reach && dR < dL * cfg.margin ? 'R' : null;
+  if (!cand) return null;                                  // en el aire o entre los dos pies: sigue valiendo el dueño anterior
+  const d = cand === 'L' ? dL : dR;
+  if (st.owner === null) { st.owner = cand; st.ownerT = t; st.touchD = d; return null; }
+  if (cand === st.owner) { st.ownerT = t; st.touchD = Math.min(st.touchD, d); return null; }
+  // el balón cambió de pie
+  const prev = st.owner, gap = t - st.ownerT, touchD = st.touchD;
+  st.owner = cand; st.ownerT = t; st.touchD = d;
+  if (gap > cfg.maxGapSec) return null;
+  if (t - st.lastCount < cfg.minGapSec) return null;
+  const dur = Number.isFinite(st.lastCount) ? t - st.lastCount : gap;
+  st.lastCount = t; st.count++;
+  const dist = (Math.min(touchD, d) + d) / 2;              // cercanía media al pie en el cambio
+  const prof = Math.round(lin(dist, cfg.closeZero, cfg.closeFull));
+  const c = cfg.tempo;
+  const ctrl = Math.round(dur <= c.tooFast ? 0 : dur < c.okMin ? lin(dur, c.tooFast, c.okMin) : dur <= c.okMax ? 100 : dur < c.tooSlow ? lin(dur, c.tooSlow, c.okMax) : 0);
+  const nota = Math.round(0.6 * prof + 0.4 * ctrl), label = labelFor(nota, cfg);
+  const tip = nota >= cfg.buena ? cfg.tips.ok : prof <= ctrl ? cfg.tips.prof : dur < c.okMin ? cfg.tips.fast : cfg.tips.slow;
+  return { type: 'rep', rep: { n: st.count, nota, prof, ext: 100, alin: 100, ctrl, label, tip, completa: nota >= cfg.regular, dir: prev === 'L' ? 'ID' : 'DI', dist: Math.round(dist * 100), dur: Math.round(dur * 100) / 100, angMin: null, caida: null, t: 0 } };
+}
+
+// Detector de objetos para el balón (MediaPipe ObjectDetector, EfficientDet-Lite0 de COCO: clase «sports ball»)
+const BALL_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
+let ballPromise = null;
+export function loadBallDetector(det) {
+  if (!ballPromise) {
+    const make = delegate => det.mod.ObjectDetector.createFromOptions(det.fileset, {
+      baseOptions: { modelAssetPath: BALL_MODEL_URL, delegate }, runningMode: 'VIDEO', scoreThreshold: 0.2, maxResults: 6, categoryAllowlist: ['sports ball']
+    });
+    ballPromise = (async () => { try { return await make(det.delegate); } catch (e) { console.warn('Detector de balón: se usa CPU', e); return make('CPU'); } })().catch(e => { ballPromise = null; throw e; });
+  }
+  return ballPromise;
+}
+
 // Configuración de cada ejercicio y de cada posición del celular. La primera vista de cada lista es la predeterminada.
 export const EXERCISE_CFG = {
+  balon: { frontal: BALL_CFG },
   flexiones: { frontal: PUSHUP_FRONT_CFG, lateral: PUSHUP_CFG },
   sentadillas: { lateral: SQUAT_CFG },
   abdominales: { lateral: CRUNCH_CFG },
@@ -460,6 +523,8 @@ export async function startSession(opts) {
   let dev = typeof opts.devTracking === 'function' ? opts.devTracking : () => !!opts.devTracking;
   const cfg = getCfg(opts.exercise, opts.view);
   const det = await loadDetector();
+  const isBall = cfg.kind === 'ball';
+  const ballDet = isBall ? await loadBallDetector(det) : null;
   const ctx = canvas.getContext('2d');
   const useVideoClock = !video.srcObject;           // con un archivo, el tiempo es el del video
   const nowSec = () => (useVideoClock ? video.currentTime : performance.now() / 1000);
@@ -472,6 +537,7 @@ export async function startSession(opts) {
   let lastRep = null, lastRepAt = 0, hud = { serie: '' };
   let fps = 0, lastDetAt = 0, frameN = 0, detEvery = 1, lowCount = 0, tsLast = 0, badFrames = 0;
   let recorder = null, chunks = [], mime = '', stopPromise = null, wakeLock = null;
+  let ballSt = createBallState(), ballLast = null, ballView = null, ballN = 0, tsLastB = 0;
 
   // pantalla encendida mientras dura el ejercicio
   async function lockScreen() { try { if (navigator.wakeLock && !wakeLock && document.visibilityState === 'visible') { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {} }
@@ -489,6 +555,41 @@ export async function startSession(opts) {
 
   function resetSignals() { sm = { ang: null, main: null, align: null, v: null }; vAng = null; }
 
+  // Balón entre los pies: pose para los pies + detector de objetos para el balón (cada 2 detecciones)
+  function detectBall(lms, t1) {
+    const W = canvas.width, H = canvas.height, tn = nowSec();
+    if (++ballN % 2 === 1) {
+      try {
+        const r = ballDet.detectForVideo(video, Math.max(performance.now(), tsLastB + 1)); tsLastB = performance.now();
+        const d = (r.detections || []).filter(x => x.categories && x.categories[0]).sort((a, b) => b.categories[0].score - a.categories[0].score)[0];
+        if (d) {
+          const bb = d.boundingBox, kx = W / video.videoWidth, ky = H / video.videoHeight; let x = (bb.originX + bb.width / 2) * kx; if (mirror) x = W - x;
+          ballLast = { x, y: (bb.originY + bb.height / 2) * ky, r: Math.max(bb.width * kx, bb.height * ky) / 2, t: tn, score: d.categories[0].score };
+        }
+      } catch (e) { /* un frame sin detección */ }
+    }
+    const ball = ballLast && Math.abs(tn - ballLast.t) <= cfg.ballHoldSec ? ballLast : null;
+    const P = i => (lms && lms[i] && visOf(lms, i) >= 0.3 ? { x: (mirror ? 1 - lms[i].x : lms[i].x) * W, y: lms[i].y * H } : null);
+    const foot = ids => { const ps = ids.map(P).filter(Boolean); return ps.length ? { x: ps.reduce((a, p) => a + p.x, 0) / ps.length, y: ps.reduce((a, p) => a + p.y, 0) / ps.length } : null; };
+    const FL = foot([27, 29, 31]), FR = foot([28, 30, 32]);
+    const dd = (a, b) => (a && b ? Math.hypot(a.x - b.x, a.y - b.y) : null);
+    const legs = [dd(P(23), P(27)), dd(P(24), P(28))].filter(v => v != null);
+    const torso = dd(avgPts(lms || [], [11, 12], W, H, mirror), avgPts(lms || [], [23, 24], W, H, mirror));
+    const unit = Math.max(40, legs.length ? legs.reduce((a, b) => a + b, 0) / legs.length : torso ? torso * 1.6 : H * 0.35);
+    const feetOk = !!(FL && FR && Math.max(visOf(lms || [], 27), visOf(lms || [], 28)) >= cfg.minVis);
+    lastMeas = lms ? { vis: feetOk ? 1 : 0.2, visOther: 0, vert: null, depth: null } : null;
+    let ev = null;
+    if (counting && !paused) ev = stepBall(ballSt, { t: tn, ball, L: FL, R: FR, unit }, cfg);
+    ballView = { ball, FL, FR, unit, owner: ballSt.owner };
+    if (ev && ev.type === 'rep') {
+      const rep = { ...ev.rep, t: Math.round(elapsed() * 100) / 100 };
+      reps.push(rep); lastRep = rep; lastRepAt = performance.now(); onRep(rep, summarize(reps));
+    }
+    if (fps && fps < cfg.lowFps) { if (++lowCount > 45) detEvery = 2; } else lowCount = 0;
+    const hint = feetOk ? 'pon el balón entre tus pies, a la vista de la cámara.' : '';
+    onState({ phase: ballSt.owner || '-', visible: feetOk && !!ball, feet: feetOk, ball: !!ball, hint, fps, delegate: det.delegate, count: ballSt.count, counting, paused, vis: feetOk ? 1 : 0, side: null });
+  }
+
   function detect() {
     const ts = Math.max(performance.now(), tsLast + 1); tsLast = ts;
     let res;
@@ -503,6 +604,7 @@ export async function startSession(opts) {
     lastDetAt = t1;
     const lms = res && res.landmarks && res.landmarks[0];
     lastLms = lms || null;
+    if (isBall) { detectBall(lms || null, t1); return; }
     let visible = false, ev = null;
     if (lms) {
       side = pickSide(lms, side, cfg);
@@ -581,9 +683,42 @@ export async function startSession(opts) {
     ctx.restore();
   }
 
+  // Balón: círculo sobre el balón, pies marcados y línea al pie que lo «tiene» (se ve también en el video grabado)
+  function drawBall(W, H) {
+    if (!ballView) return;
+    const u = Math.min(W / 1280, H / 720), { ball, FL, FR, owner } = ballView;
+    ctx.save(); ctx.lineCap = 'round';
+    [['L', FL, 'I'], ['R', FR, 'D']].forEach(([k, p, txt]) => {
+      if (!p) return; const on = owner === k;
+      ctx.fillStyle = on ? '#2ecc71' : 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(p.x, p.y, (on ? 16 : 11) * u, 0, 7); ctx.fill();
+      ctx.fillStyle = '#10241a'; ctx.font = `700 ${(on ? 18 : 14) * u}px system-ui,Arial,sans-serif`; ctx.textAlign = 'center'; ctx.fillText(txt, p.x, p.y + 6 * u);
+    });
+    if (ball) {
+      const own = owner === 'L' ? FL : owner === 'R' ? FR : null;
+      if (own) { ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 3 * u; ctx.setLineDash([8 * u, 6 * u]); ctx.beginPath(); ctx.moveTo(ball.x, ball.y); ctx.lineTo(own.x, own.y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 4 * u; ctx.beginPath(); ctx.arc(ball.x, ball.y, Math.max(ball.r, 14 * u), 0, 7); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // Modo desarrollador: los 33 puntos del cuerpo (cara, manos y pies incluidos), las líneas de altura y las señales
   function drawDev(W, H) {
     if (!lastLms) return;
+    if (isBall) {
+      const u = Math.min(W / 1280, H / 720);
+      ctx.save(); ctx.lineCap = 'round';
+      BONES.forEach(([a, b]) => { const A = lastLms[a], B = lastLms[b]; if (!A || !B) return; const f = p => ({ x: (mirror ? 1 - p.x : p.x) * W, y: p.y * H }), pa = f(A), pb = f(B); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); });
+      const f2 = x => (x == null || !isFinite(x) ? '–' : x.toFixed(2));
+      const lines = [`Dueño: ${ballSt.owner === 'L' ? 'pie izquierdo' : ballSt.owner === 'R' ? 'pie derecho' : '–'} · cambios ${ballSt.count}`,
+        `Distancia al pie (largos de pierna): izq. ${f2(ballSt.dL)} · der. ${f2(ballSt.dR)} (alcance ${cfg.reach})`,
+        `Balón: ${ballView && ballView.ball ? 'visto ' + Math.round(ballLast.score * 100) + ' %' : 'no se ve'} · largo de pierna ${ballView ? Math.round(ballView.unit) : '–'} px`,
+        `${fps ? fps.toFixed(0) : '–'} FPS · ${det.delegate}${detEvery > 1 ? ' · cada 2 frames' : ''}`];
+      ctx.font = `600 ${15 * u}px ui-monospace,Consolas,monospace`; ctx.textAlign = 'left';
+      const bh2 = (lines.length * 21 + 12) * u, y0 = H - bh2 - 12 * u;
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; rr(ctx, 12 * u, y0, 560 * u, bh2, 8 * u); ctx.fill();
+      ctx.fillStyle = '#9cff9c'; lines.forEach((s, i) => ctx.fillText(s, 22 * u, y0 + (22 + i * 21) * u));
+      ctx.restore(); return;
+    }
     const u = Math.min(W / 1280, H / 720), ix = SIDES[side] || SIDES.left, act = new Set(Object.values(ix));
     const px = p => ({ x: (mirror ? 1 - p.x : p.x) * W, y: p.y * H });
     const label = (p, s, col, dx = 12, dy = -10) => { ctx.font = `700 ${20 * u}px system-ui,Arial,sans-serif`; ctx.textAlign = 'left'; ctx.lineWidth = 4 * u; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText(s, p.x + dx * u, p.y + dy * u); ctx.fillStyle = col; ctx.fillText(s, p.x + dx * u, p.y + dy * u); };
@@ -668,6 +803,7 @@ export async function startSession(opts) {
       ctx.drawImage(video, 0, 0, W, H);
       ctx.restore();
       if (dev()) drawDev(W, H);
+      if (isBall) drawBall(W, H);
       drawHud(W, H);
     }
     schedule();
@@ -687,7 +823,7 @@ export async function startSession(opts) {
     setHud(h) { hud = { ...hud, ...h }; },
     // empieza a contar y a grabar
     begin() {
-      machine = createMachine(); reps = []; lastRep = null; resetSignals(); vbuf = []; trace = [];
+      machine = createMachine(); reps = []; lastRep = null; resetSignals(); vbuf = []; trace = []; ballSt = createBallState();
       tStartClock = performance.now() / 1000; pausedTotal = 0; paused = false; counting = true;
       mime = pickMime(); chunks = [];
       try {
@@ -704,7 +840,7 @@ export async function startSession(opts) {
       if (stopPromise) return stopPromise;
       stopPromise = (async () => {
         const dur = elapsed();
-        if (counting) { const ev = flushMachine(machine, nowSec(), cfg); if (ev && ev.type === 'rep') { const rep = { ...ev.rep, t: Math.round(dur * 100) / 100 }; reps.push(rep); onRep(rep, summarize(reps)); } }
+        if (counting && !isBall) { const ev = flushMachine(machine, nowSec(), cfg); if (ev && ev.type === 'rep') { const rep = { ...ev.rep, t: Math.round(dur * 100) / 100 }; reps.push(rep); onRep(rep, summarize(reps)); } }
         running = false; counting = false;
         document.removeEventListener('visibilitychange', onVis);
         try { wakeLock && wakeLock.release(); } catch {} wakeLock = null;

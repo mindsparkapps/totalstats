@@ -62,6 +62,19 @@ store = {
     if (i >= 0) S[c][i] = rec; else S[c].push(rec);
     queueRender(); notifyDataChanged();
   },
+  // varios registros en una sola transacción (datos de prueba)
+  async putMany(c, items) {
+    const now = Date.now(), recs = items.map(it => ({ ...it, updatedAt: now }));
+    await dbTx(c, os => recs.forEach(r => os.put(r)));
+    const ids = new Set(recs.map(r => r.id)); S[c] = S[c].filter(r => !ids.has(r.id)).concat(recs);
+    queueRender(); notifyDataChanged();
+  },
+  async delMany(c, ids) {
+    await dbTx(c, os => ids.forEach(id => os.delete(id)));
+    if (typeof recordDeletion === 'function') ids.forEach(id => recordDeletion(c, id));
+    const set = new Set(ids); S[c] = S[c].filter(r => !set.has(r.id));
+    queueRender(); notifyDataChanged();
+  },
   async del(c, id) {
     await dbTx(c, os => os.delete(id));
     if (typeof recordDeletion === 'function') recordDeletion(c, id);

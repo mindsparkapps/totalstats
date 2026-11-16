@@ -1,4 +1,4 @@
-const CACHE_NAME = 'libreta-v6';
+const CACHE_NAME = 'libreta-v7';
 const ML_CACHE = 'libreta-ml-v1'; // MediaPipe (código, wasm y modelo): se guarda la primera vez y funciona sin conexión
 const ASSETS = [
   './',
@@ -7,6 +7,7 @@ const ASSETS = [
   './app.js',
   './version.js',
   './rutina.js',
+  './rutina-stats.js',
   './pushup.js',
   './sync.js',
   './config.js',

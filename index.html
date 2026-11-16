@@ -192,17 +192,28 @@
       <div><div class="eyebrow">Ejercicios con cámara</div><h2>Rutina</h2></div>
       <div class="toolbar"><button class="btn primary" type="button" id="ru-new">Nueva rutina</button></div>
     </div>
-    <div class="card" id="ru-catalog"></div>
-    <div class="grid">
-      <div class="card c5" style="display:grid;gap:12px;align-content:start">
+    <div class="seg" role="tablist" aria-label="Secciones de Rutina">
+      <button type="button" role="tab" data-ru="sub" data-id="entrenar" aria-selected="true">Entrenar</button>
+      <button type="button" role="tab" data-ru="sub" data-id="historial" aria-selected="false">Historial</button>
+      <button type="button" role="tab" data-ru="sub" data-id="estadisticas" aria-selected="false">Estadísticas</button>
+      <button type="button" role="tab" data-ru="sub" data-id="plan" aria-selected="false">Planificación</button>
+    </div>
+    <div id="ru-p-entrenar" class="ru-pane">
+      <div class="card" id="ru-catalog"></div>
+      <div class="card" style="display:grid;gap:12px;align-content:start">
         <h3>Mis rutinas</h3>
         <div class="list" id="ru-list"></div>
       </div>
-      <div class="card c7" style="display:grid;gap:12px;align-content:start">
+    </div>
+    <div id="ru-p-historial" class="ru-pane" hidden>
+      <div class="card" style="display:grid;gap:12px;align-content:start">
         <div class="head-row"><h3>Historial de entrenos</h3><span class="hint" id="ru-space"></span></div>
+        <div class="ru-ctl" id="ru-hist-ctl"></div>
         <div class="tbl-wrap" id="ru-history"></div>
       </div>
     </div>
+    <div id="ru-p-estadisticas" class="ru-pane" hidden><div class="card" id="ru-stats" style="display:grid;gap:14px"></div></div>
+    <div id="ru-p-plan" class="ru-pane" hidden><div class="card" id="ru-plan" style="display:grid;gap:14px"></div></div>
     <details class="card" id="ru-dev">
       <summary>⚙️ Modo desarrollador</summary>
       <div class="dev-body">
@@ -308,6 +319,7 @@
 <script src="sync.js"></script>
 <script src="app.js"></script>
 <script src="rutina.js"></script>
+<script src="rutina-stats.js"></script>
 <script>
 (() => { const e = document.getElementById('appVer'); if (!e || typeof APP_VERSION === 'undefined') return;
   e.textContent = `v${APP_VERSION} · #${APP_BUILD} · ${APP_COMMIT}`;
