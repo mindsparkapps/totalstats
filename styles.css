@@ -303,7 +303,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 @media (max-width:560px){.subtabs{width:100%}.subtabs button{flex:1;padding:7px 8px}}
 
 /* Pizarra: ficha seleccionada más grande y pantalla completa con barra de herramientas a la derecha */
-#pitch .tok.sel circle:not(.ring):not(.hit){stroke:var(--run);stroke-width:4;filter:drop-shadow(0 0 6px rgba(0,0,0,.55))}
+#pitch .tok.sel circle:not(.ring):not(.hit):not(.tgt){stroke:var(--run);stroke-width:4;filter:drop-shadow(0 0 6px rgba(0,0,0,.55))}
 .rail,#fs-exit,#fs-ring{display:none}
 body.tb-lock{overflow:hidden}
 .board-card.tb-full{position:fixed;inset:0;z-index:300;width:100vw;height:100vh;height:100dvh;border-radius:0;border:0;padding:0;gap:0;background:#0f1512;grid-template-columns:minmax(0,1fr) 176px;grid-template-rows:minmax(0,1fr)}

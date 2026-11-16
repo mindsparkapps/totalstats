@@ -499,12 +499,13 @@ let TK = 2;
 function updateTokenScale() { const w = Math.min(svg.clientWidth, svg.clientHeight * 1150 / 780) || svg.clientWidth || 800; const k = 2 * Math.min(1.5, Math.max(1, 640 / w)); if (Math.abs(k - TK) > 0.05) { TK = k; drawTokens(); } }
 // la ficha seleccionada se ve más grande
 const SELK = 1; // al arrastrar, la ficha se duplica y al soltar vuelve a su tamaño
-const tf = (x, y, sel, id) => `translate(${x} ${y}) scale(${drag && drag.id === id ? TK * 2 : sel ? TK * SELK : TK})`;
+const tf = (x, y, sel, id) => `translate(${x} ${y}) scale(${drag && drag.id === id ? TK * 1.6 : sel ? TK * SELK : TK})`;
 window.addEventListener('resize', updateTokenScale);
 window.addEventListener('orientationchange', () => setTimeout(updateTokenScale, 300));
 function shortName(pid) { const j = pid && playerById(pid); return j ? j.nombre.split(' ')[0] : ''; }
 function drawTokens(posOverride, arrowsOverride, arrowOpacity = 1) {
   const fr = T.frames[T.cur]; if (!fr) return;
+  if (!posOverride && fr.holder && fr.pos[fr.holder]) attachBall(fr.pos, fr.holder); // el balón acompaña a quien lo lleva
   const pos = posOverride || fr.pos, arrows = arrowsOverride || fr.arrows;
   $('#g-arrows').innerHTML = arrows.map((a, i) => `<g data-arrow="${i}" opacity="${arrowOpacity}"><line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" stroke="transparent" stroke-width="24" style="pointer-events:stroke"/>
     <line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" stroke="${a.kind === 'pase' ? 'var(--chalk)' : 'var(--run)'}" stroke-width="4" ${a.kind === 'carrera' ? 'stroke-dasharray="14 10"' : ''} stroke-linecap="round" marker-end="url(#mk-${a.kind})" style="pointer-events:none"/></g>`).join('');
@@ -516,6 +517,7 @@ function drawTokens(posOverride, arrowsOverride, arrowOpacity = 1) {
     const nm = m.team === 'a' ? shortName(m.playerId) : '';
     return `<g class="tok" data-tok="${m.id}" tabindex="0" role="button" aria-label="${m.team === 'a' ? 'Mi equipo' : 'Rival'} ${esc(m.label)} ${esc(nm)}" transform="${tf(p.x, p.y, sel, m.id)}">
       <circle class="hit" r="40" fill="transparent"/>
+      <circle class="tgt" r="33" fill="none" stroke="#ffd400" stroke-width="5" opacity="0" style="pointer-events:none"/>
       <circle class="ring" r="29" fill="none" stroke="var(--run)" stroke-width="3" stroke-dasharray="6 5" opacity="${sel ? 1 : 0}"/>
       <circle r="21" fill="${fill}" stroke="var(--chalk)" stroke-width="3"/>
       <text text-anchor="middle" y="7.5" fill="#fff" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="22" style="pointer-events:none">${esc(m.label)}</text>
@@ -532,17 +534,57 @@ function renderBoard() { drawTokens(); drawFrames(); renderSel(); }
 
 function svgPt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
 const clampX = v => Math.max(-30, Math.min(1080, v)), clampY = v => Math.max(-30, Math.min(710, v));
-let drag = null, draft = null;
+let drag = null, draft = null, tap = null, anim = null;
+
+/* balón: lo lleva un jugador (frame.holder) o queda libre; los viajes se animan */
+const OFF = { x: 34, y: 24 };
+const attachBall = (pos, id) => { const q = pos[id]; if (q) pos.ball = { x: q.x + OFF.x, y: q.y + OFF.y }; };
+const easeIO = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+function glide(id, x, y, speed = 450) {
+  const fr = T.frames[T.cur], q = fr.pos[id]; if (!q) return Promise.resolve();
+  if (anim) anim.end();
+  const x0 = q.x, y0 = q.y, dur = reduce ? 1 : Math.max(180, Math.hypot(x - x0, y - y0) / speed * 1000), t0 = performance.now();
+  return new Promise(res => {
+    const set = k => { q.x = Math.round(x0 + (x - x0) * k); q.y = Math.round(y0 + (y - y0) * k); drawTokens(); };
+    const job = { end() { cancelAnimationFrame(job.raf); if (anim === job) anim = null; set(1); res(); } };
+    const tick = now => { const k = Math.min(1, (now - t0) / dur); set(easeIO(k)); if (k < 1) job.raf = requestAnimationFrame(tick); else { if (anim === job) anim = null; res(); } };
+    anim = job; job.raf = requestAnimationFrame(tick);
+  });
+}
+async function passTo(id) {
+  const fr = T.frames[T.cur], q = fr.pos[id]; if (!q || fr.holder === id) return;
+  fr.holder = null; await glide('ball', q.x + OFF.x, q.y + OFF.y, 900);
+  fr.holder = id; select(id);
+}
+async function doWall(w, p) {
+  T.wall = null; await glide(w.a, p.x, p.y); await passTo(w.a);
+}
+function nearPlayer(q) {
+  let best = null, bd = 30 * TK;
+  T.meta.forEach(m => { if (m.team === 'ball' || (m.team === 'b' && !T.showB)) return; const s = T.frames[T.cur].pos[m.id]; const d = Math.hypot(s.x - q.x, s.y - q.y); if (d < bd) { bd = d; best = m.id; } });
+  return best;
+}
+function longPress(d) {
+  const fr = T.frames[T.cur]; if (d.id === 'ball') return;
+  if (navigator.vibrate) navigator.vibrate(30);
+  if (fr.holder === d.id) { fr.holder = null; drawTokens(); toast('Balón libre: ya puedes moverlo.'); }
+  else if (d.prev && d.prev !== 'ball' && d.prev !== d.id && fr.holder === d.prev) {
+    const w = { a: d.prev, b: d.id }; T.wall = w; passTo(d.id).then(() => { T.wall = w; }); toast('Pared: toca el césped donde quieres que llegue el jugador.');
+  }
+}
 svg.addEventListener('pointerdown', e => {
   if (T.playing) return;
   const p = svgPt(e), tok = e.target.closest('[data-tok]'), fr = T.frames[T.cur];
   if (T.tool === 'mover') {
+    if (anim) anim.end();
     if (tok) {
-      const id = tok.dataset.tok, q = fr.pos[id];
-      drag = { id, dx: q.x - p.x, dy: q.y - p.y, el: tok, moved: false };
-      svg.setPointerCapture(e.pointerId); select(id, false); tok.setAttribute('transform', tf(q.x, q.y, true, id));
+      const id = tok.dataset.tok, q = fr.pos[id], prev = T.sel;
+      T.wall = null;
+      drag = { id, dx: q.x - p.x, dy: q.y - p.y, el: tok, moved: false, prev, cx: e.clientX, cy: e.clientY, long: false, target: null };
+      drag.timer = setTimeout(() => { if (drag && drag.el === tok && !drag.moved) { drag.long = true; longPress(drag); } }, 1500);
+      svg.setPointerCapture(e.pointerId); select(id, false);
       if (navigator.vibrate) navigator.vibrate(8); // pequeño toque al agarrar la ficha (no existe en iPhone)
-    } else select(null);
+    } else { tap = { prev: T.sel, cx: e.clientX, cy: e.clientY, p }; svg.setPointerCapture(e.pointerId); }
   } else if (T.tool === 'pase' || T.tool === 'carrera') {
     const s = tok ? fr.pos[tok.dataset.tok] : p;
     draft = { x1: s.x, y1: s.y, x2: p.x, y2: p.y, kind: T.tool };
@@ -557,17 +599,51 @@ svg.addEventListener('pointerdown', e => {
   e.preventDefault();
 });
 svg.addEventListener('pointermove', e => {
+  if (tap && Math.hypot(e.clientX - tap.cx, e.clientY - tap.cy) > 8) tap = null;
   if (drag) {
-    const p = svgPt(e), q = T.frames[T.cur].pos[drag.id];
-    q.x = Math.round(clampX(p.x + drag.dx)); q.y = Math.round(clampY(p.y + drag.dy)); drag.moved = true;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) < 8) return;
+      drag.moved = true; clearTimeout(drag.timer); drag.el.setAttribute('opacity', .5); // ficha a medio alpha mientras se arrastra
+      if (drag.id === 'ball') T.frames[T.cur].holder = null; // al arrastrar el balón se suelta
+    }
+    const fr = T.frames[T.cur], p = svgPt(e), q = fr.pos[drag.id];
+    q.x = Math.round(clampX(p.x + drag.dx)); q.y = Math.round(clampY(p.y + drag.dy));
     drag.el.setAttribute('transform', tf(q.x, q.y, T.sel === drag.id, drag.id));
+    if (fr.holder === drag.id) { // el balón viaja con su jugador
+      attachBall(fr.pos, drag.id); const be = svg.querySelector('[data-tok="ball"]'); if (be) be.setAttribute('transform', tf(fr.pos.ball.x, fr.pos.ball.y, T.sel === 'ball', 'ball'));
+    }
+    if (drag.id === 'ball') { // círculo amarillo en el jugador que recibirá el balón al soltarlo
+      const t = nearPlayer(q); if (t !== drag.target) { drag.target = t; svg.querySelectorAll('.tgt').forEach(c => c.setAttribute('opacity', c.parentNode.dataset.tok === t ? 1 : 0)); }
+    }
   } else if (draft) {
     const p = svgPt(e); draft.x2 = clampX(p.x); draft.y2 = clampY(p.y);
     const d = $('#draft'); ['x1', 'y1', 'x2', 'y2'].forEach(k => d.setAttribute(k, draft[k])); d.setAttribute('visibility', 'visible');
   }
 });
-function endPointer() {
-  if (drag) { drag = null; drawTokens(); }
+function endPointer(e) {
+  const cancel = e && e.type === 'pointercancel';
+  if (tap) {
+    const t = tap; tap = null;
+    if (!cancel && !T.playing) {
+      const p = { x: clampX(t.p.x), y: clampY(t.p.y) };
+      if (T.wall) doWall(T.wall, p);
+      else if (t.prev === 'ball') { const fr = T.frames[T.cur]; fr.holder = null; glide('ball', p.x, p.y, 900); }
+      else if (t.prev) glide(t.prev, p.x, p.y);
+    }
+  }
+  if (drag) {
+    const d = drag; drag = null; clearTimeout(d.timer);
+    const fr = T.frames[T.cur]; let sel = null, act = null;
+    if (d.moved && d.id === 'ball' && d.target && !cancel) { fr.holder = d.target; sel = d.target; }
+    else if (!d.moved && !d.long && !cancel) {
+      if (d.prev === d.id) sel = 'none';
+      else if (d.prev === 'ball' && d.id !== 'ball' && fr.holder !== d.id) act = () => passTo(d.id);
+      else if (d.prev && d.prev !== 'ball' && d.id !== 'ball' && fr.holder === d.prev) act = () => passTo(d.id);
+    }
+    drawTokens();
+    if (sel) select(sel === 'none' ? null : sel);
+    if (act) act();
+  }
   if (draft) {
     if (Math.hypot(draft.x2 - draft.x1, draft.y2 - draft.y1) > 25) { const a = draft; ['x1', 'y1', 'x2', 'y2'].forEach(k => a[k] = Math.round(a[k])); T.frames[T.cur].arrows.push(a); }
     draft = null; $('#draft').setAttribute('visibility', 'hidden'); drawTokens();
@@ -625,7 +701,7 @@ function applyForm(team) {
 }
 $('#t-fa').addEventListener('change', e => { T.formA = e.target.value; applyForm('a'); });
 $('#t-fb').addEventListener('change', e => { T.formB = e.target.value; applyForm('b'); });
-$('#t-reset').addEventListener('click', () => { applyForm('a'); applyForm('b'); T.frames[T.cur].pos.ball = { x: 525, y: 340 }; drawTokens(); });
+$('#t-reset').addEventListener('click', () => { applyForm('a'); applyForm('b'); T.frames[T.cur].pos.ball = { x: 525, y: 340 }; T.frames[T.cur].holder = null; drawTokens(); });
 
 /* todos los jugadores a la orilla: mi equipo en la banda de arriba y el rival en la de abajo, para ir distribuyéndolos */
 function toEdge() {

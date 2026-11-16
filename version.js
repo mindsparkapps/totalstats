@@ -2,5 +2,5 @@
 // Se actualiza antes de cada commit: APP_VERSION a mano al sacar una versión nueva;
 // APP_BUILD = número de este commit y APP_COMMIT = el commit anterior sobre el que se construyó.
 const APP_VERSION = '0.6.0';
-const APP_BUILD = 12;
+const APP_BUILD = 13;
 const APP_COMMIT = 'f476c94';
